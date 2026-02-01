@@ -91,7 +91,7 @@
             <h1 class="text-2xl md:text-3xl font-bold text-gray-800 tracking-tight">
                 kanikmijnkortebroekwassen.nl
             </h1>
-            <p class="text-gray-500 text-sm mt-1">Op basis van de actuele energieprijs</p>
+            <p class="text-gray-500 text-sm mt-1">Op basis van de actuele marktprijs voor stroom</p>
         </header>
 
         <!-- Demo Mode Banner -->
@@ -264,8 +264,10 @@
                         <div>
                             <h3 class="font-semibold text-gray-500 text-xs uppercase tracking-wider mb-2">Disclaimer</h3>
                             <p class="text-gray-400 text-xs leading-relaxed">
-                                De getoonde energieprijzen zijn gebaseerd op de day-ahead marktprijzen via de eKlok/EnergyZero API en zijn <strong>schattingen</strong>.
-                                Je werkelijke energieprijs hangt af van je energiecontract, belastingen en netwerkkosten.
+                                De getoonde energieprijzen zijn day-ahead marktprijzen (excl. belastingen) via de
+                                <a href="https://api.energy-charts.info/" target="_blank" rel="noopener" class="underline hover:text-gray-600">Energy-Charts API</a>
+                                van Fraunhofer ISE en zijn <strong>schattingen</strong>.
+                                Je werkelijke energieprijs hangt af van je energiecontract, energiebelasting en netwerkkosten.
                                 De was-aanbeveling is indicatief en houdt geen rekening met je specifieke wasmachine of contract.
                             </p>
                             <p class="text-gray-400 text-xs leading-relaxed mt-2">
@@ -290,11 +292,11 @@
         // ============================================================
         const CONFIG = {
             eklokApiUrl: 'https://www.eklok.nl/api/pricedetail',
-            energyZeroApiUrl: 'https://api.energyzero.nl/v1/energyprices',
-            // Price thresholds in EUR/kWh (incl. BTW) for status
+            energyChartsApiUrl: 'https://api.energy-charts.info/price',
+            // Price thresholds in EUR/kWh (day-ahead marktprijs, excl. belastingen)
             thresholds: {
-                green: 0.10,   // Below this = GREEN (cheap, wash now!)
-                orange: 0.25,  // Below this = ORANGE (moderate)
+                green: 0.07,   // Below this = GREEN (cheap, wash now!)
+                orange: 0.15,  // Below this = ORANGE (moderate)
                                 // Above orange = RED (expensive, wait)
             },
             // Average washing machine consumption
@@ -318,7 +320,7 @@
 
         /**
          * Try fetching from the eKlok API first.
-         * Falls back to EnergyZero API, then to demo data.
+         * Falls back to Energy-Charts API, then to demo data.
          */
         async function fetchPriceData() {
             try {
@@ -326,15 +328,15 @@
                 const data = await fetchEklokApi();
                 return data;
             } catch (e) {
-                console.warn('eKlok API niet bereikbaar, probeer EnergyZero...', e.message);
+                console.warn('eKlok API niet bereikbaar, probeer Energy-Charts...', e.message);
             }
 
             try {
-                // Attempt 2: EnergyZero API (public endpoint)
-                const data = await fetchEnergyZeroApi();
+                // Attempt 2: Energy-Charts API (Fraunhofer ISE, geen auth nodig)
+                const data = await fetchEnergyChartsApi();
                 return data;
             } catch (e) {
-                console.warn('EnergyZero API niet bereikbaar, start demo modus...', e.message);
+                console.warn('Energy-Charts API niet bereikbaar, start demo modus...', e.message);
             }
 
             // Attempt 3: Demo mode
@@ -363,14 +365,11 @@
         }
 
         function parseEklokResponse(data) {
-            // The eKlok API format isn't publicly documented.
-            // Attempt to parse common response shapes.
             const hourlyPrices = [];
             const now = new Date();
             const currentHour = now.getHours();
             let currentPrice = null;
 
-            // Try parsing as array of hourly prices
             const prices = data.Prices || data.prices || data.data || [];
 
             if (Array.isArray(prices) && prices.length > 0) {
@@ -382,7 +381,6 @@
 
                     if (price !== null) {
                         hourlyPrices.push({ hour, price: parseFloat(price), date });
-
                         if (hour === currentHour) {
                             currentPrice = parseFloat(price);
                         }
@@ -390,13 +388,11 @@
                 }
             }
 
-            // If no current price found, try top-level fields
             if (currentPrice === null) {
                 currentPrice = data.currentPrice ?? data.price ?? data.Price ?? null;
             }
 
             if (currentPrice === null && hourlyPrices.length > 0) {
-                // Find closest hour
                 const sorted = [...hourlyPrices].sort((a, b) =>
                     Math.abs(a.hour - currentHour) - Math.abs(b.hour - currentHour)
                 );
@@ -414,21 +410,17 @@
             };
         }
 
-        async function fetchEnergyZeroApi() {
-            const now = new Date();
-            const startOfDay = new Date(now);
-            startOfDay.setHours(0, 0, 0, 0);
-            const endOfDay = new Date(now);
-            endOfDay.setHours(23, 59, 59, 999);
-
-            // Convert to UTC ISO strings
-            const fromDate = startOfDay.toISOString();
-            const tillDate = endOfDay.toISOString();
-
-            const url = `${CONFIG.energyZeroApiUrl}?fromDate=${fromDate}&tillDate=${tillDate}&interval=4&usageType=1&inclBtw=true`;
+        /**
+         * Fetch day-ahead prices from Energy-Charts API (Fraunhofer ISE).
+         * Returns quarter-hourly data for NL, aggregated to hourly averages.
+         * Prices are in EUR/MWh and converted to EUR/kWh.
+         * Docs: https://api.energy-charts.info/
+         */
+        async function fetchEnergyChartsApi() {
+            const url = `${CONFIG.energyChartsApiUrl}?country=nl&resolution=quarter_hourly`;
 
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 8000);
+            const timeout = setTimeout(() => controller.abort(), 10000);
 
             try {
                 const response = await fetch(url, {
@@ -440,38 +432,78 @@
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
                 const data = await response.json();
-                return parseEnergyZeroResponse(data);
+                return parseEnergyChartsResponse(data);
             } catch (e) {
                 clearTimeout(timeout);
                 throw e;
             }
         }
 
-        function parseEnergyZeroResponse(data) {
-            const prices = data.Prices || [];
+        /**
+         * Parse the Energy-Charts response.
+         * Response format: { unix_seconds: number[], price: number[], unit: "EUR/MWh", ... }
+         * Quarter-hourly data is aggregated to hourly averages for display.
+         */
+        function parseEnergyChartsResponse(data) {
+            const timestamps = data.unix_seconds;
+            const pricesMwh = data.price;
+
+            if (!Array.isArray(timestamps) || !Array.isArray(pricesMwh) || timestamps.length === 0) {
+                throw new Error('Ongeldige Energy-Charts response');
+            }
+
             const now = new Date();
+            const todayStr = now.toISOString().slice(0, 10); // "YYYY-MM-DD"
             const currentHour = now.getHours();
+
+            // Group quarter-hourly entries by hour (only today's data)
+            const hourBuckets = {};
+
+            for (let i = 0; i < timestamps.length; i++) {
+                const price = pricesMwh[i];
+                if (price === null || price === undefined) continue;
+
+                const date = new Date(timestamps[i] * 1000);
+                const dateStr = date.toISOString().slice(0, 10);
+
+                // Only use today's prices
+                if (dateStr !== todayStr) continue;
+
+                const hour = date.getHours();
+                if (!hourBuckets[hour]) {
+                    hourBuckets[hour] = { total: 0, count: 0, date };
+                }
+                hourBuckets[hour].total += price;
+                hourBuckets[hour].count += 1;
+            }
+
             const hourlyPrices = [];
             let currentPrice = null;
 
-            for (const entry of prices) {
-                const price = parseFloat(entry.price ?? entry.Price);
-                const date = new Date(entry.readingDate || entry.ReadingDate || entry.timestamp);
-                const hour = date.getHours();
+            for (const [hourStr, bucket] of Object.entries(hourBuckets)) {
+                const hour = parseInt(hourStr, 10);
+                // Convert EUR/MWh average to EUR/kWh
+                const priceKwh = (bucket.total / bucket.count) / 1000;
 
-                hourlyPrices.push({ hour, price, date });
+                hourlyPrices.push({
+                    hour,
+                    price: Math.round(priceKwh * 10000) / 10000, // 4 decimals precision
+                    date: bucket.date,
+                });
 
                 if (hour === currentHour) {
-                    currentPrice = price;
+                    currentPrice = Math.round(priceKwh * 10000) / 10000;
                 }
             }
 
-            if (currentPrice === null && hourlyPrices.length > 0) {
-                currentPrice = hourlyPrices[hourlyPrices.length - 1].price;
+            if (hourlyPrices.length === 0) {
+                throw new Error('Geen prijsdata voor vandaag in Energy-Charts response');
             }
 
+            // If current hour has no data yet, use the latest available hour
             if (currentPrice === null) {
-                throw new Error('Geen prijsdata in EnergyZero response');
+                const sorted = [...hourlyPrices].sort((a, b) => b.hour - a.hour);
+                currentPrice = sorted[0].price;
             }
 
             return {
@@ -482,19 +514,19 @@
         }
 
         /**
-         * Generate realistic demo data when both APIs fail.
+         * Generate realistic demo data when all APIs fail.
          */
         function getDemoData() {
             const now = new Date();
             const currentHour = now.getHours();
             const hourlyPrices = [];
 
-            // Realistic Dutch day-ahead price curve (EUR/kWh incl. BTW)
+            // Realistic Dutch day-ahead price curve (EUR/kWh, marktprijs excl. belastingen)
             const basePrices = [
-                0.05, 0.04, 0.03, 0.03, 0.04, 0.06,  // 00:00 - 05:00 (night, cheap)
-                0.09, 0.15, 0.22, 0.19, 0.14, 0.12,  // 06:00 - 11:00 (morning peak)
-                0.10, 0.09, 0.08, 0.10, 0.16, 0.28,  // 12:00 - 17:00 (afternoon)
-                0.32, 0.27, 0.18, 0.12, 0.08, 0.06,  // 18:00 - 23:00 (evening peak, then down)
+                0.04, 0.03, 0.02, 0.02, 0.03, 0.05,  // 00:00 - 05:00 (night, cheap)
+                0.07, 0.12, 0.18, 0.15, 0.11, 0.09,  // 06:00 - 11:00 (morning peak)
+                0.08, 0.07, 0.06, 0.08, 0.13, 0.22,  // 12:00 - 17:00 (afternoon)
+                0.26, 0.21, 0.14, 0.09, 0.06, 0.05,  // 18:00 - 23:00 (evening peak, then down)
             ];
 
             // Add small random variation
@@ -503,7 +535,7 @@
                 const price = Math.max(0, basePrices[h] + variation);
                 hourlyPrices.push({
                     hour: h,
-                    price: Math.round(price * 1000) / 1000,
+                    price: Math.round(price * 10000) / 10000,
                     date: new Date(now.getFullYear(), now.getMonth(), now.getDate(), h),
                 });
             }
@@ -591,7 +623,7 @@
 
             // Price display
             document.getElementById('price-display').innerHTML =
-                `Huidige prijs: <strong>&euro;${currentPrice.toFixed(3)}/kWh</strong> &mdash; wasbeurt kost ca. <strong>&euro;${washCost}</strong>`;
+                `Marktprijs nu: <strong>&euro;${currentPrice.toFixed(4)}/kWh</strong> &mdash; wasbeurt kost ca. <strong>&euro;${washCost}</strong>`;
 
             // Time display
             document.getElementById('time-display').textContent =
@@ -636,12 +668,12 @@
 
             if (cheapest.hour === currentHour) {
                 document.getElementById('best-time-text').innerHTML =
-                    `<strong>Nu!</strong> Dit is het goedkoopste moment (&euro;${cheapest.price.toFixed(3)}/kWh). ` +
+                    `<strong>Nu!</strong> Dit is het goedkoopste moment (&euro;${cheapest.price.toFixed(4)}/kWh). ` +
                     `Een wasbeurt kost nu ca. <strong>&euro;${cheapestCost}</strong>.`;
             } else {
                 const hourStr = `${String(cheapest.hour).padStart(2, '0')}:00`;
                 document.getElementById('best-time-text').innerHTML =
-                    `Het goedkoopste moment is om <strong>${hourStr}</strong> (&euro;${cheapest.price.toFixed(3)}/kWh). ` +
+                    `Het goedkoopste moment is om <strong>${hourStr}</strong> (&euro;${cheapest.price.toFixed(4)}/kWh). ` +
                     `Een wasbeurt kost dan ca. <strong>&euro;${cheapestCost}</strong>.`;
             }
         }
@@ -679,7 +711,7 @@
                 return `
                     <tr class="border-b border-gray-50 ${rowHighlight}">
                         <td class="py-1.5 text-gray-600 text-xs">${hourLabel}${currentMarker}</td>
-                        <td class="py-1.5 text-right text-gray-700 text-xs tabular-nums">&euro;${price.toFixed(3)}</td>
+                        <td class="py-1.5 text-right text-gray-700 text-xs tabular-nums">&euro;${price.toFixed(4)}</td>
                         <td class="py-1.5 pr-2">
                             <div class="flex justify-end">
                                 <div class="price-bar ${barColor} h-3 rounded-full opacity-60" style="width: ${barWidth}%"></div>
