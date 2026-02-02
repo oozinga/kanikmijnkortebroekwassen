@@ -22,55 +22,56 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
-        body {
-            transition: background-color 0.8s ease;
-        }
+        body { transition: background-color 0.8s ease; }
 
         .status-green { background-color: #f0fdf4; }
+        .status-green-bright { background-color: #dcfce7; }
         .status-orange { background-color: #fff7ed; }
         .status-red { background-color: #fef2f2; }
+        .status-red-deep { background-color: #fee2e2; }
 
-        .pulse-ring {
-            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-        }
-
+        .pulse-ring { animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite; }
         @keyframes pulse-ring {
             0% { transform: scale(0.9); opacity: 0.7; }
             50% { transform: scale(1); opacity: 1; }
             100% { transform: scale(0.9); opacity: 0.7; }
         }
 
-        .fade-in {
-            animation: fadeIn 0.6s ease-out forwards;
-            opacity: 0;
-        }
+        .fade-in { animation: fadeIn 0.6s ease-out forwards; opacity: 0; }
+        @keyframes fadeIn { to { opacity: 1; } }
 
-        @keyframes fadeIn {
-            to { opacity: 1; }
-        }
+        .ad-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .ad-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px -5px rgba(0,0,0,0.1); }
 
-        .ad-card {
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .ad-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px -5px rgba(0,0,0,0.1);
-        }
-
-        .price-bar {
-            transition: width 0.5s ease;
-        }
+        .price-bar { transition: width 0.5s ease; }
 
         .shimmer {
             background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
             background-size: 200% 100%;
             animation: shimmer 1.5s infinite;
         }
-
         @keyframes shimmer {
             0% { background-position: -200% 0; }
             100% { background-position: 200% 0; }
+        }
+
+        .tab-active {
+            background-color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            font-weight: 600;
+            color: #1f2937;
+        }
+        .tab-inactive { background-color: transparent; color: #9ca3af; }
+        .tab-inactive:hover { color: #6b7280; }
+
+        /* Stedin logo wordmark */
+        .stedin-logo {
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #47555D;
+        }
+        .stedin-logo .stedin-dot {
+            color: #FFE873;
         }
     </style>
 </head>
@@ -81,25 +82,51 @@
         <div class="shimmer w-48 h-48 rounded-full mb-8"></div>
         <div class="shimmer w-64 h-8 rounded-lg mb-4"></div>
         <div class="shimmer w-48 h-6 rounded-lg"></div>
-        <p class="text-gray-400 mt-6 text-sm">Energieprijzen ophalen...</p>
+        <p class="text-gray-400 mt-6 text-sm">Energiedata ophalen...</p>
     </div>
 
     <!-- Main Content -->
     <div id="app" class="hidden">
         <!-- Header -->
-        <header class="pt-8 pb-4 px-4 text-center">
+        <header class="pt-8 pb-2 px-4 text-center">
             <h1 class="text-2xl md:text-3xl font-bold text-gray-800 tracking-tight">
                 kanikmijnkortebroekwassen.nl
             </h1>
-            <p class="text-gray-500 text-sm mt-1">Op basis van de actuele marktprijs voor stroom</p>
+            <p id="subtitle" class="text-gray-500 text-sm mt-1"></p>
         </header>
+
+        <!-- Source Toggle -->
+        <div class="flex justify-center py-4 px-4">
+            <div class="bg-gray-100 rounded-full p-1 flex gap-1 border border-gray-200">
+                <button id="tab-stedin" onclick="switchSource('stedin')"
+                    class="tab-active rounded-full px-4 py-1.5 text-sm transition-all duration-200 cursor-pointer">
+                    <span class="flex items-center gap-1.5">
+                        <!-- Stedin logo inline SVG -->
+                        <svg viewBox="0 0 260 80" class="h-4 w-auto" aria-label="Stedin eKlok">
+                            <text x="0" y="58" font-family="Inter, system-ui, sans-serif" font-weight="800" font-size="62" letter-spacing="-2" fill="#47555D">sted</text>
+                            <text x="148" y="58" font-family="Inter, system-ui, sans-serif" font-weight="800" font-size="62" letter-spacing="-2" fill="#47555D">i</text>
+                            <circle cx="157" cy="16" r="7" fill="#FFE873"/>
+                            <text x="168" y="58" font-family="Inter, system-ui, sans-serif" font-weight="800" font-size="62" letter-spacing="-2" fill="#47555D">n</text>
+                        </svg>
+                        <span class="text-gray-400 font-normal">eKlok</span>
+                    </span>
+                </button>
+                <button id="tab-entsoe" onclick="switchSource('entsoe')"
+                    class="tab-inactive rounded-full px-4 py-1.5 text-sm transition-all duration-200 cursor-pointer">
+                    <span class="flex items-center gap-1.5">
+                        <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+                        ENTSO-E
+                    </span>
+                </button>
+            </div>
+        </div>
 
         <!-- Demo Mode Banner -->
         <div id="demo-banner" class="hidden mx-4 mb-4 max-w-lg lg:max-w-xl mx-auto">
             <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
                 <i data-lucide="info" class="w-5 h-5 text-amber-500 flex-shrink-0"></i>
                 <p class="text-amber-700 text-sm">
-                    <span class="font-semibold">Demo modus</span> &mdash; Live prijzen konden niet worden opgehaald. Je ziet nu voorbeelddata.
+                    <span class="font-semibold">Demo modus</span> &mdash; Live data kon niet worden opgehaald. Je ziet nu voorbeelddata.
                 </p>
             </div>
         </div>
@@ -119,11 +146,23 @@
                 <!-- Explanation -->
                 <div class="fade-in" style="animation-delay: 0.2s">
                     <p id="status-explanation" class="text-lg md:text-xl text-gray-700 font-medium mb-2"></p>
-                    <div class="flex items-center justify-center gap-2 text-gray-500">
+                    <div id="price-row" class="flex items-center justify-center gap-2 text-gray-500">
                         <i data-lucide="zap" class="w-4 h-4"></i>
                         <p id="price-display" class="text-sm"></p>
                     </div>
-                    <p id="time-display" class="text-xs text-gray-400 mt-1"></p>
+                    <!-- Stedin Score Meter -->
+                    <div id="score-meter-container" class="hidden mt-3 max-w-xs mx-auto">
+                        <div class="flex justify-between text-xs text-gray-400 mb-1">
+                            <span>-100</span>
+                            <span>0</span>
+                            <span>+100</span>
+                        </div>
+                        <div class="h-3 bg-gradient-to-r from-red-400 via-orange-300 via-yellow-200 to-green-400 rounded-full relative overflow-hidden">
+                            <div id="score-needle" class="absolute top-0 w-1 h-3 bg-gray-800 rounded-full transition-all duration-700" style="left: 50%"></div>
+                        </div>
+                        <p id="score-display" class="text-xs text-gray-500 mt-1.5"></p>
+                    </div>
+                    <p id="time-display" class="text-xs text-gray-400 mt-2"></p>
                 </div>
 
                 <!-- Tip -->
@@ -145,8 +184,6 @@
                 <!-- GREEN Ads -->
                 <div id="ads-green" class="hidden space-y-3">
                     <p class="text-xs font-medium text-gray-400 uppercase tracking-wider px-1">Aanbevolen</p>
-
-                    <!-- Mr Marvis Ad -->
                     <a href="YOUR_AFFILIATE_URL_MRMARVIS" target="_blank" rel="noopener sponsored" class="ad-card block bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
                         <div class="flex items-center gap-4">
                             <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -159,8 +196,6 @@
                             <i data-lucide="chevron-right" class="w-5 h-5 text-gray-300 flex-shrink-0"></i>
                         </div>
                     </a>
-
-                    <!-- Sustainable Detergent Ad -->
                     <a href="YOUR_AFFILIATE_URL_SEEPJE" target="_blank" rel="noopener sponsored" class="ad-card block bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
                         <div class="flex items-center gap-4">
                             <div class="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -178,8 +213,6 @@
                 <!-- ORANGE/RED Ads -->
                 <div id="ads-red" class="hidden space-y-3">
                     <p class="text-xs font-medium text-gray-400 uppercase tracking-wider px-1">Aanbevolen</p>
-
-                    <!-- Bijenkorf Reserve Short Ad -->
                     <a href="YOUR_AFFILIATE_URL_BIJENKORF" target="_blank" rel="noopener sponsored" class="ad-card block bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
                         <div class="flex items-center gap-4">
                             <div class="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -192,8 +225,6 @@
                             <i data-lucide="chevron-right" class="w-5 h-5 text-gray-300 flex-shrink-0"></i>
                         </div>
                     </a>
-
-                    <!-- Coolblue Washing Machine Ad -->
                     <a href="YOUR_AFFILIATE_URL_COOLBLUE" target="_blank" rel="noopener sponsored" class="ad-card block bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
                         <div class="flex items-center gap-4">
                             <div class="w-12 h-12 bg-sky-50 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -210,8 +241,8 @@
             </div>
         </section>
 
-        <!-- Best Time Section -->
-        <section id="best-time-section" class="px-4 pb-8">
+        <!-- Best Time Section (ENTSO-E only) -->
+        <section id="best-time-section" class="px-4 pb-8 hidden">
             <div class="max-w-lg lg:max-w-xl mx-auto">
                 <div class="bg-white/70 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-sm">
                     <div class="flex items-center gap-2 mb-3">
@@ -223,8 +254,8 @@
             </div>
         </section>
 
-        <!-- Hourly Prices Table -->
-        <section class="px-4 pb-8">
+        <!-- Hourly Prices Table (ENTSO-E only) -->
+        <section id="hourly-table-section" class="px-4 pb-8 hidden">
             <div class="max-w-lg lg:max-w-xl mx-auto">
                 <details class="bg-white/70 backdrop-blur-sm rounded-2xl border border-gray-100 shadow-sm">
                     <summary class="p-5 cursor-pointer select-none">
@@ -241,9 +272,7 @@
                                     <tr class="border-b border-gray-100">
                                         <th class="text-left py-2 text-gray-400 font-medium text-xs">Uur</th>
                                         <th class="text-right py-2 text-gray-400 font-medium text-xs">Prijs/kWh</th>
-                                        <th class="text-right py-2 text-gray-400 font-medium text-xs w-32">
-                                            <span class="sr-only">Balk</span>
-                                        </th>
+                                        <th class="text-right py-2 text-gray-400 font-medium text-xs w-32"><span class="sr-only">Balk</span></th>
                                         <th class="text-center py-2 text-gray-400 font-medium text-xs">Status</th>
                                     </tr>
                                 </thead>
@@ -263,24 +292,32 @@
                         <i data-lucide="alert-circle" class="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5"></i>
                         <div>
                             <h3 class="font-semibold text-gray-500 text-xs uppercase tracking-wider mb-2">Disclaimer</h3>
-                            <p class="text-gray-400 text-xs leading-relaxed">
-                                De getoonde energieprijzen zijn day-ahead marktprijzen (excl. belastingen) via de
-                                <a href="https://api.energy-charts.info/" target="_blank" rel="noopener" class="underline hover:text-gray-600">Energy-Charts API</a>
-                                van Fraunhofer ISE en zijn <strong>schattingen</strong>.
-                                Je werkelijke energieprijs hangt af van je energiecontract, energiebelasting en netwerkkosten.
-                                De was-aanbeveling is indicatief en houdt geen rekening met je specifieke wasmachine of contract.
-                            </p>
+                            <p id="disclaimer-text" class="text-gray-400 text-xs leading-relaxed"></p>
                             <p class="text-gray-400 text-xs leading-relaxed mt-2">
                                 Deze pagina bevat <strong>affiliate links</strong>. Wanneer je via deze links een aankoop doet,
                                 ontvangen wij mogelijk een kleine commissie &mdash; zonder extra kosten voor jou.
                             </p>
                         </div>
                     </div>
-                    <p class="text-center text-gray-300 text-xs mt-6">
-                        &copy; 2025 kanikmijnkortebroekwassen.nl &mdash; Made with
-                        <i data-lucide="heart" class="w-3 h-3 inline text-red-300"></i>
-                        and cheap energy
-                    </p>
+
+                    <!-- Credits -->
+                    <div class="text-center mt-8 space-y-2">
+                        <p class="text-gray-400 text-xs">
+                            Een project van
+                            <strong class="text-gray-500">energyfact</strong> &amp;
+                            <strong class="text-gray-500">eFabriek</strong>
+                        </p>
+                        <p class="text-gray-300 text-xs">
+                            Ge&iuml;nspireerd door
+                            <a href="https://kanikeenkortebroekaan.nl/" target="_blank" rel="noopener"
+                               class="text-gray-400 underline hover:text-gray-500">kanikeenkortebroekaan.nl</a>
+                        </p>
+                        <p class="text-gray-300 text-xs mt-4">
+                            &copy; 2025 kanikmijnkortebroekwassen.nl &mdash; Made with
+                            <i data-lucide="heart" class="w-3 h-3 inline text-red-300"></i>
+                            and cheap energy
+                        </p>
+                    </div>
                 </div>
             </div>
         </footer>
@@ -291,48 +328,156 @@
         // Configuration
         // ============================================================
         const CONFIG = {
+            // Stedin eKlok
             eklokApiUrl: 'https://www.eklok.nl/api/pricedetail',
+
+            // ENTSO-E Transparency Platform (requires API token)
+            // Register at https://transparency.entsoe.eu/ and request API access
+            // Docs: https://documenter.getpostman.com/view/7009892/2s93JtP3F6
+            entsoeApiUrl: 'https://web-api.tp.entsoe.eu/api',
+            entsoeToken: '', // <-- Vul hier je ENTSO-E security token in
+            entsoeDomain: '10YNL----------L', // Netherlands bidding zone
+
+            // Energy-Charts fallback (same ENTSO-E data, no auth needed)
             energyChartsApiUrl: 'https://api.energy-charts.info/price',
-            // Price thresholds in EUR/kWh (day-ahead marktprijs, excl. belastingen)
-            thresholds: {
-                green: 0.07,   // Below this = GREEN (cheap, wash now!)
-                orange: 0.15,  // Below this = ORANGE (moderate)
-                                // Above orange = RED (expensive, wait)
-            },
-            // Average washing machine consumption
+
+            // ENTSO-E price thresholds in EUR/kWh (day-ahead marktprijs, excl. belastingen)
+            entsoeThresholds: { green: 0.07, orange: 0.15 },
             washCycleKwh: 1.2,
-            refreshInterval: 5 * 60 * 1000, // Refresh every 5 minutes
+            refreshInterval: 5 * 60 * 1000,
         };
 
         // ============================================================
         // State
         // ============================================================
-        let state = {
-            isDemo: false,
-            currentPrice: null,
-            status: 'GREEN',
-            hourlyPrices: [],
-        };
+        let activeSource = 'stedin';
+        let stedinData = null;
+        let entsoeData = null;
 
         // ============================================================
-        // API Fetching
+        // Source Toggle
         // ============================================================
 
-        /**
-         * Try fetching from the eKlok API first.
-         * Falls back to Energy-Charts API, then to demo data.
-         */
-        async function fetchPriceData() {
+        function switchSource(source) {
+            activeSource = source;
+            const tabStedin = document.getElementById('tab-stedin');
+            const tabEntsoe = document.getElementById('tab-entsoe');
+            tabStedin.className = tabStedin.className.replace(/tab-\w+/, source === 'stedin' ? 'tab-active' : 'tab-inactive');
+            tabEntsoe.className = tabEntsoe.className.replace(/tab-\w+/, source === 'entsoe' ? 'tab-active' : 'tab-inactive');
+
+            if (source === 'stedin' && stedinData) renderStedin(stedinData);
+            else if (source === 'entsoe' && entsoeData) renderEntsoe(entsoeData);
+        }
+
+        // ============================================================
+        // Stedin eKlok API
+        // ============================================================
+
+        async function fetchStedinData() {
             try {
-                // Attempt 1: eKlok API
-                const data = await fetchEklokApi();
-                return data;
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 8000);
+                const response = await fetch(CONFIG.eklokApiUrl, {
+                    signal: controller.signal,
+                    headers: { 'Accept': 'application/json' },
+                });
+                clearTimeout(timeout);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                return parseStedinResponse(data);
             } catch (e) {
-                console.warn('eKlok API niet bereikbaar, probeer Energy-Charts...', e.message);
+                console.warn('eKlok API niet bereikbaar, start demo modus...', e.message);
+                return getStedinDemoData();
+            }
+        }
+
+        function parseStedinResponse(data) {
+            let score = data.score ?? data.value ?? data.percentage ?? data.load ?? data.signal ?? null;
+            if (score === null && data.data) {
+                score = data.data.score ?? data.data.value ?? data.data.percentage ?? null;
+            }
+            if (score === null && data.current) {
+                score = typeof data.current === 'number' ? data.current : (data.current.score ?? data.current.value ?? null);
+            }
+            if (score === null || typeof score !== 'number') {
+                console.warn('Kan eKlok score niet parsen, fallback naar demo');
+                return getStedinDemoData();
+            }
+            return { isDemo: false, score: Math.max(-100, Math.min(100, score)) };
+        }
+
+        function getStedinDemoData() {
+            const hour = new Date().getHours();
+            const baseScores = [
+                60, 70, 75, 80, 70, 50,
+                20, -20, -50, -30, 0, 15,
+                25, 35, 40, 20, -10, -60,
+                -70, -40, -10, 20, 40, 55,
+            ];
+            const variation = Math.floor((Math.random() - 0.5) * 20);
+            return { isDemo: true, score: Math.max(-100, Math.min(100, baseScores[hour] + variation)) };
+        }
+
+        // ============================================================
+        // Stedin Score → Status
+        // ============================================================
+
+        function getStedinConfig(score) {
+            if (score >= 70) return {
+                answer: 'JA!', bodyClass: 'status-green-bright', circleBg: 'bg-emerald-500',
+                explanation: 'Het is volgens Stedin een FANTASTISCH moment om je korte broek te wassen',
+                tip: 'Tip: Het net is super rustig! Ideaal moment om ook de droger aan te zetten.',
+                icon: 'check', iconColor: 'text-white', adGroup: 'green',
+            };
+            if (score >= 30) return {
+                answer: 'JA', bodyClass: 'status-green', circleBg: 'bg-green-500',
+                explanation: 'Het is volgens Stedin een goed moment om je korte broek te wassen',
+                tip: 'Tip: Was op 30\u00b0C om nog meer te besparen. Een koud wasprogramma gebruikt tot 60% minder energie!',
+                icon: 'check', iconColor: 'text-white', adGroup: 'green',
+            };
+            if (score >= 0) return {
+                answer: 'PRIMA', bodyClass: 'status-green', circleBg: 'bg-lime-500',
+                explanation: 'Het is volgens Stedin een prima moment om je korte broek te wassen',
+                tip: 'Tip: Goed moment, maar het kan straks misschien nog beter. Check later opnieuw als je geen haast hebt.',
+                icon: 'thumbs-up', iconColor: 'text-white', adGroup: 'green',
+            };
+            if (score >= -30) return {
+                answer: 'MEH', bodyClass: 'status-orange', circleBg: 'bg-orange-400',
+                explanation: 'Het is volgens Stedin een matig moment om je broek te wassen',
+                tip: 'Tip: Het net is redelijk druk. Wacht als het kan nog even tot een rustiger moment.',
+                icon: 'minus', iconColor: 'text-white', adGroup: 'red',
+            };
+            if (score >= -80) return {
+                answer: 'NEE', bodyClass: 'status-red', circleBg: 'bg-red-500',
+                explanation: 'Het is volgens Stedin een behoorlijk slecht moment om je korte broek te wassen',
+                tip: 'Tip: Het stroomnet is druk. Wacht een paar uur tot de piek voorbij is.',
+                icon: 'x', iconColor: 'text-white', adGroup: 'red',
+            };
+            return {
+                answer: 'NEE!', bodyClass: 'status-red-deep', circleBg: 'bg-red-700',
+                explanation: 'Het is volgens Stedin een vreselijk moment om je korte broek te wassen',
+                tip: 'Tip: Het net staat op knappen! Gebruik nu zo min mogelijk zware apparaten. Probeer het vanavond laat of morgenochtend vroeg.',
+                icon: 'alert-triangle', iconColor: 'text-white', adGroup: 'red',
+            };
+        }
+
+        // ============================================================
+        // ENTSO-E API (direct + Energy-Charts fallback)
+        // ============================================================
+
+        async function fetchEntsoeData() {
+            // Attempt 1: Direct ENTSO-E Transparency Platform API
+            if (CONFIG.entsoeToken) {
+                try {
+                    const data = await fetchEntsoeDirectApi();
+                    return data;
+                } catch (e) {
+                    console.warn('ENTSO-E API niet bereikbaar, probeer Energy-Charts...', e.message);
+                }
             }
 
+            // Attempt 2: Energy-Charts API (serves same ENTSO-E data, no auth)
             try {
-                // Attempt 2: Energy-Charts API (Fraunhofer ISE, geen auth nodig)
                 const data = await fetchEnergyChartsApi();
                 return data;
             } catch (e) {
@@ -340,99 +485,47 @@
             }
 
             // Attempt 3: Demo mode
-            return getDemoData();
-        }
-
-        async function fetchEklokApi() {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 8000);
-
-            try {
-                const response = await fetch(CONFIG.eklokApiUrl, {
-                    signal: controller.signal,
-                    headers: { 'Accept': 'application/json' },
-                });
-                clearTimeout(timeout);
-
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-                const data = await response.json();
-                return parseEklokResponse(data);
-            } catch (e) {
-                clearTimeout(timeout);
-                throw e;
-            }
-        }
-
-        function parseEklokResponse(data) {
-            const hourlyPrices = [];
-            const now = new Date();
-            const currentHour = now.getHours();
-            let currentPrice = null;
-
-            const prices = data.Prices || data.prices || data.data || [];
-
-            if (Array.isArray(prices) && prices.length > 0) {
-                for (const entry of prices) {
-                    const price = entry.price ?? entry.Price ?? entry.value ?? null;
-                    const dateStr = entry.readingDate || entry.ReadingDate || entry.timestamp || entry.date || '';
-                    const date = new Date(dateStr);
-                    const hour = date.getHours();
-
-                    if (price !== null) {
-                        hourlyPrices.push({ hour, price: parseFloat(price), date });
-                        if (hour === currentHour) {
-                            currentPrice = parseFloat(price);
-                        }
-                    }
-                }
-            }
-
-            if (currentPrice === null) {
-                currentPrice = data.currentPrice ?? data.price ?? data.Price ?? null;
-            }
-
-            if (currentPrice === null && hourlyPrices.length > 0) {
-                const sorted = [...hourlyPrices].sort((a, b) =>
-                    Math.abs(a.hour - currentHour) - Math.abs(b.hour - currentHour)
-                );
-                currentPrice = sorted[0].price;
-            }
-
-            if (currentPrice === null) {
-                throw new Error('Kan geen prijsdata parsen uit eKlok response');
-            }
-
-            return {
-                isDemo: false,
-                currentPrice,
-                hourlyPrices: hourlyPrices.sort((a, b) => a.hour - b.hour),
-            };
+            return getEntsoeDemoData();
         }
 
         /**
-         * Fetch day-ahead prices from Energy-Charts API (Fraunhofer ISE).
-         * Returns quarter-hourly data for NL, aggregated to hourly averages.
-         * Prices are in EUR/MWh and converted to EUR/kWh.
-         * Docs: https://api.energy-charts.info/
+         * Fetch day-ahead prices directly from the ENTSO-E Transparency Platform.
+         * Requires a security token (register at transparency.entsoe.eu).
+         * Docs: https://documenter.getpostman.com/view/7009892/2s93JtP3F6
+         * Returns XML with document type A44 (day-ahead prices).
          */
-        async function fetchEnergyChartsApi() {
-            const url = `${CONFIG.energyChartsApiUrl}?country=nl&resolution=quarter_hourly`;
+        async function fetchEntsoeDirectApi() {
+            const now = new Date();
+            const startOfDay = new Date(now);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(now);
+            endOfDay.setDate(endOfDay.getDate() + 1);
+            endOfDay.setHours(0, 0, 0, 0);
+
+            // ENTSO-E uses UTC format: yyyyMMddHHmm
+            const fmt = (d) => d.toISOString().replace(/[-:T]/g, '').slice(0, 12);
+
+            const params = new URLSearchParams({
+                securityToken: CONFIG.entsoeToken,
+                documentType: 'A44',
+                in_Domain: CONFIG.entsoeDomain,
+                out_Domain: CONFIG.entsoeDomain,
+                periodStart: fmt(startOfDay),
+                periodEnd: fmt(endOfDay),
+            });
 
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 10000);
 
             try {
-                const response = await fetch(url, {
+                const response = await fetch(`${CONFIG.entsoeApiUrl}?${params}`, {
                     signal: controller.signal,
-                    headers: { 'Accept': 'application/json' },
                 });
                 clearTimeout(timeout);
-
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-                const data = await response.json();
-                return parseEnergyChartsResponse(data);
+                const xmlText = await response.text();
+                return parseEntsoeXml(xmlText);
             } catch (e) {
                 clearTimeout(timeout);
                 throw e;
@@ -440,67 +533,56 @@
         }
 
         /**
-         * Parse the Energy-Charts response.
-         * Response format: { unix_seconds: number[], price: number[], unit: "EUR/MWh", ... }
-         * Quarter-hourly data is aggregated to hourly averages for display.
+         * Parse ENTSO-E XML response (document type A44).
+         * Extracts hourly prices from <TimeSeries> → <Period> → <Point> elements.
+         * Prices are in EUR/MWh, converted to EUR/kWh.
          */
-        function parseEnergyChartsResponse(data) {
-            const timestamps = data.unix_seconds;
-            const pricesMwh = data.price;
+        function parseEntsoeXml(xmlText) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
 
-            if (!Array.isArray(timestamps) || !Array.isArray(pricesMwh) || timestamps.length === 0) {
-                throw new Error('Ongeldige Energy-Charts response');
-            }
-
-            const now = new Date();
-            const todayStr = now.toISOString().slice(0, 10); // "YYYY-MM-DD"
-            const currentHour = now.getHours();
-
-            // Group quarter-hourly entries by hour (only today's data)
-            const hourBuckets = {};
-
-            for (let i = 0; i < timestamps.length; i++) {
-                const price = pricesMwh[i];
-                if (price === null || price === undefined) continue;
-
-                const date = new Date(timestamps[i] * 1000);
-                const dateStr = date.toISOString().slice(0, 10);
-
-                // Only use today's prices
-                if (dateStr !== todayStr) continue;
-
-                const hour = date.getHours();
-                if (!hourBuckets[hour]) {
-                    hourBuckets[hour] = { total: 0, count: 0, date };
-                }
-                hourBuckets[hour].total += price;
-                hourBuckets[hour].count += 1;
-            }
+            const errorEl = xmlDoc.querySelector('Reason text');
+            if (errorEl) throw new Error(`ENTSO-E: ${errorEl.textContent}`);
 
             const hourlyPrices = [];
+            const currentHour = new Date().getHours();
             let currentPrice = null;
 
-            for (const [hourStr, bucket] of Object.entries(hourBuckets)) {
-                const hour = parseInt(hourStr, 10);
-                // Convert EUR/MWh average to EUR/kWh
-                const priceKwh = (bucket.total / bucket.count) / 1000;
+            const timeSeries = xmlDoc.getElementsByTagName('TimeSeries');
+            for (const ts of timeSeries) {
+                const periods = ts.getElementsByTagName('Period');
+                for (const period of periods) {
+                    // Get the start time of this period
+                    const startEl = period.querySelector('timeInterval start');
+                    const periodStart = startEl ? new Date(startEl.textContent) : new Date();
 
-                hourlyPrices.push({
-                    hour,
-                    price: Math.round(priceKwh * 10000) / 10000, // 4 decimals precision
-                    date: bucket.date,
-                });
+                    const points = period.getElementsByTagName('Point');
+                    for (const point of points) {
+                        const position = parseInt(point.getElementsByTagName('position')[0].textContent, 10);
+                        const priceMwh = parseFloat(point.getElementsByTagName('price.amount')[0].textContent);
+                        const priceKwh = Math.round((priceMwh / 1000) * 10000) / 10000;
 
-                if (hour === currentHour) {
-                    currentPrice = Math.round(priceKwh * 10000) / 10000;
+                        // position is 1-based, representing hours from period start
+                        const hour = (periodStart.getUTCHours() + position - 1) % 24;
+
+                        // Avoid duplicates
+                        if (!hourlyPrices.find(p => p.hour === hour)) {
+                            hourlyPrices.push({
+                                hour,
+                                price: priceKwh,
+                                date: new Date(periodStart.getTime() + (position - 1) * 3600000),
+                            });
+                        }
+
+                        if (hour === currentHour && currentPrice === null) {
+                            currentPrice = priceKwh;
+                        }
+                    }
                 }
             }
 
-            if (hourlyPrices.length === 0) {
-                throw new Error('Geen prijsdata voor vandaag in Energy-Charts response');
-            }
+            if (hourlyPrices.length === 0) throw new Error('Geen prijsdata in ENTSO-E response');
 
-            // If current hour has no data yet, use the latest available hour
             if (currentPrice === null) {
                 const sorted = [...hourlyPrices].sort((a, b) => b.hour - a.hour);
                 currentPrice = sorted[0].price;
@@ -514,140 +596,230 @@
         }
 
         /**
-         * Generate realistic demo data when all APIs fail.
+         * Fallback: Energy-Charts API (Fraunhofer ISE).
+         * Serves the same ENTSO-E day-ahead data, no auth needed, CORS-friendly.
          */
-        function getDemoData() {
+        async function fetchEnergyChartsApi() {
+            const url = `${CONFIG.energyChartsApiUrl}?country=nl&resolution=quarter_hourly`;
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000);
+
+            try {
+                const response = await fetch(url, {
+                    signal: controller.signal,
+                    headers: { 'Accept': 'application/json' },
+                });
+                clearTimeout(timeout);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const data = await response.json();
+                return parseEnergyChartsResponse(data);
+            } catch (e) {
+                clearTimeout(timeout);
+                throw e;
+            }
+        }
+
+        function parseEnergyChartsResponse(data) {
+            const timestamps = data.unix_seconds;
+            const pricesMwh = data.price;
+
+            if (!Array.isArray(timestamps) || !Array.isArray(pricesMwh) || timestamps.length === 0) {
+                throw new Error('Ongeldige Energy-Charts response');
+            }
+
+            const now = new Date();
+            const todayStr = now.toISOString().slice(0, 10);
+            const currentHour = now.getHours();
+            const hourBuckets = {};
+
+            for (let i = 0; i < timestamps.length; i++) {
+                const price = pricesMwh[i];
+                if (price === null || price === undefined) continue;
+                const date = new Date(timestamps[i] * 1000);
+                if (date.toISOString().slice(0, 10) !== todayStr) continue;
+
+                const hour = date.getHours();
+                if (!hourBuckets[hour]) hourBuckets[hour] = { total: 0, count: 0, date };
+                hourBuckets[hour].total += price;
+                hourBuckets[hour].count += 1;
+            }
+
+            const hourlyPrices = [];
+            let currentPrice = null;
+
+            for (const [hourStr, bucket] of Object.entries(hourBuckets)) {
+                const hour = parseInt(hourStr, 10);
+                const priceKwh = (bucket.total / bucket.count) / 1000;
+                hourlyPrices.push({
+                    hour,
+                    price: Math.round(priceKwh * 10000) / 10000,
+                    date: bucket.date,
+                });
+                if (hour === currentHour) currentPrice = Math.round(priceKwh * 10000) / 10000;
+            }
+
+            if (hourlyPrices.length === 0) throw new Error('Geen prijsdata voor vandaag');
+
+            if (currentPrice === null) {
+                const sorted = [...hourlyPrices].sort((a, b) => b.hour - a.hour);
+                currentPrice = sorted[0].price;
+            }
+
+            return { isDemo: false, currentPrice, hourlyPrices: hourlyPrices.sort((a, b) => a.hour - b.hour) };
+        }
+
+        function getEntsoeDemoData() {
             const now = new Date();
             const currentHour = now.getHours();
             const hourlyPrices = [];
-
-            // Realistic Dutch day-ahead price curve (EUR/kWh, marktprijs excl. belastingen)
             const basePrices = [
-                0.04, 0.03, 0.02, 0.02, 0.03, 0.05,  // 00:00 - 05:00 (night, cheap)
-                0.07, 0.12, 0.18, 0.15, 0.11, 0.09,  // 06:00 - 11:00 (morning peak)
-                0.08, 0.07, 0.06, 0.08, 0.13, 0.22,  // 12:00 - 17:00 (afternoon)
-                0.26, 0.21, 0.14, 0.09, 0.06, 0.05,  // 18:00 - 23:00 (evening peak, then down)
+                0.04, 0.03, 0.02, 0.02, 0.03, 0.05,
+                0.07, 0.12, 0.18, 0.15, 0.11, 0.09,
+                0.08, 0.07, 0.06, 0.08, 0.13, 0.22,
+                0.26, 0.21, 0.14, 0.09, 0.06, 0.05,
             ];
 
-            // Add small random variation
             for (let h = 0; h < 24; h++) {
                 const variation = (Math.random() - 0.5) * 0.02;
-                const price = Math.max(0, basePrices[h] + variation);
                 hourlyPrices.push({
                     hour: h,
-                    price: Math.round(price * 10000) / 10000,
+                    price: Math.round(Math.max(0, basePrices[h] + variation) * 10000) / 10000,
                     date: new Date(now.getFullYear(), now.getMonth(), now.getDate(), h),
                 });
             }
 
-            return {
-                isDemo: true,
-                currentPrice: hourlyPrices[currentHour].price,
-                hourlyPrices,
-            };
+            return { isDemo: true, currentPrice: hourlyPrices[currentHour].price, hourlyPrices };
         }
 
         // ============================================================
-        // Status Logic
+        // ENTSO-E Status Logic
         // ============================================================
 
-        function getStatus(price) {
-            if (price <= CONFIG.thresholds.green) return 'GREEN';
-            if (price <= CONFIG.thresholds.orange) return 'ORANGE';
+        function getEntsoeStatus(price) {
+            if (price <= CONFIG.entsoeThresholds.green) return 'GREEN';
+            if (price <= CONFIG.entsoeThresholds.orange) return 'ORANGE';
             return 'RED';
         }
 
-        function getStatusConfig(status) {
+        function getEntsoeConfig(status) {
             const configs = {
                 GREEN: {
-                    answer: 'JA!',
-                    bodyClass: 'status-green',
-                    circleBg: 'bg-green-500',
+                    answer: 'JA!', bodyClass: 'status-green', circleBg: 'bg-green-500',
                     explanation: 'De stroom is nu goedkoop. Draai dat wasje!',
-                    tip: 'Tip: Was op 30°C om nog meer te besparen. Een koud wasprogramma gebruikt tot 60% minder energie!',
-                    icon: 'check',
-                    iconColor: 'text-white',
+                    tip: 'Tip: Was op 30\u00b0C om nog meer te besparen. Een koud wasprogramma gebruikt tot 60% minder energie!',
+                    icon: 'check', iconColor: 'text-white', adGroup: 'green',
                 },
                 ORANGE: {
-                    answer: 'MEH',
-                    bodyClass: 'status-orange',
-                    circleBg: 'bg-orange-400',
+                    answer: 'MEH', bodyClass: 'status-orange', circleBg: 'bg-orange-400',
                     explanation: 'De stroomprijs is nu gemiddeld. Kan je even wachten?',
                     tip: 'Tip: De prijs daalt meestal in de middag en na 21:00. Stel een timer in op je wasmachine als dat kan!',
-                    icon: 'minus',
-                    iconColor: 'text-white',
+                    icon: 'minus', iconColor: 'text-white', adGroup: 'red',
                 },
                 RED: {
-                    answer: 'NEE',
-                    bodyClass: 'status-red',
-                    circleBg: 'bg-red-500',
+                    answer: 'NEE', bodyClass: 'status-red', circleBg: 'bg-red-500',
                     explanation: 'De stroom is nu duur. Wacht met wassen!',
                     tip: 'Tip: Piekprijzen duren meestal maar een paar uur. Check later opnieuw voor een beter moment.',
-                    icon: 'x',
-                    iconColor: 'text-white',
+                    icon: 'x', iconColor: 'text-white', adGroup: 'red',
                 },
             };
             return configs[status] || configs.GREEN;
         }
 
         // ============================================================
-        // Rendering
+        // Rendering: Stedin
         // ============================================================
 
-        function render(data) {
+        function renderStedin(data) {
+            const { score, isDemo } = data;
+            const config = getStedinConfig(score);
+            const now = new Date();
+
+            document.getElementById('subtitle').textContent = 'Op basis van de Stedin eKlok netbelasting';
+            document.getElementById('disclaimer-text').innerHTML =
+                'De getoonde data is gebaseerd op de <a href="https://www.eklok.nl/" target="_blank" rel="noopener" class="underline hover:text-gray-600">Stedin eKlok</a> ' +
+                'die de belasting op het stroomnet weergeeft. De score (-100 tot +100) is een indicatie en geen exacte meting. ' +
+                'De was-aanbeveling is indicatief en houdt geen rekening met je specifieke wasmachine of energiecontract.';
+
+            document.body.className = `min-h-screen font-sans ${config.bodyClass}`;
+            document.getElementById('demo-banner').classList.toggle('hidden', !isDemo);
+
+            const circle = document.getElementById('status-circle');
+            circle.className = `w-44 h-44 md:w-52 md:h-52 rounded-full flex flex-col items-center justify-center pulse-ring shadow-lg ${config.circleBg}`;
+            document.getElementById('status-icon').innerHTML = `<i data-lucide="${config.icon}" class="w-8 h-8 ${config.iconColor}"></i>`;
+            document.getElementById('status-answer').textContent = config.answer;
+            document.getElementById('status-explanation').textContent = config.explanation;
+
+            document.getElementById('price-row').classList.add('hidden');
+            document.getElementById('score-meter-container').classList.remove('hidden');
+
+            const needlePercent = ((score + 100) / 200) * 100;
+            document.getElementById('score-needle').style.left = `calc(${needlePercent}% - 2px)`;
+            document.getElementById('score-display').textContent = `Netbelasting score: ${score > 0 ? '+' : ''}${score}`;
+
+            document.getElementById('time-display').textContent =
+                `Laatst bijgewerkt: ${now.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}`;
+            document.getElementById('tip-text').textContent = config.tip;
+
+            document.getElementById('ads-green').classList.toggle('hidden', config.adGroup !== 'green');
+            document.getElementById('ads-red').classList.toggle('hidden', config.adGroup !== 'red');
+
+            document.getElementById('best-time-section').classList.add('hidden');
+            document.getElementById('hourly-table-section').classList.add('hidden');
+
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('app').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        // ============================================================
+        // Rendering: ENTSO-E
+        // ============================================================
+
+        function renderEntsoe(data) {
             const { currentPrice, hourlyPrices, isDemo } = data;
-            const status = getStatus(currentPrice);
-            const config = getStatusConfig(status);
+            const status = getEntsoeStatus(currentPrice);
+            const config = getEntsoeConfig(status);
             const now = new Date();
             const washCost = (currentPrice * CONFIG.washCycleKwh).toFixed(2);
 
-            // Update body background
-            document.body.className = `min-h-screen font-sans ${config.bodyClass}`;
+            document.getElementById('subtitle').textContent = 'Op basis van ENTSO-E day-ahead marktprijzen';
+            document.getElementById('disclaimer-text').innerHTML =
+                'De getoonde energieprijzen zijn day-ahead marktprijzen (excl. belastingen) via de ' +
+                '<a href="https://transparency.entsoe.eu/" target="_blank" rel="noopener" class="underline hover:text-gray-600">ENTSO-E Transparency Platform</a>. ' +
+                'Je werkelijke energieprijs hangt af van je energiecontract, energiebelasting en netwerkkosten. ' +
+                'De was-aanbeveling is indicatief en houdt geen rekening met je specifieke wasmachine of contract.';
 
-            // Show/hide demo banner
+            document.body.className = `min-h-screen font-sans ${config.bodyClass}`;
             document.getElementById('demo-banner').classList.toggle('hidden', !isDemo);
 
-            // Status circle
             const circle = document.getElementById('status-circle');
             circle.className = `w-44 h-44 md:w-52 md:h-52 rounded-full flex flex-col items-center justify-center pulse-ring shadow-lg ${config.circleBg}`;
-
-            // Status icon inside circle
-            const iconContainer = document.getElementById('status-icon');
-            iconContainer.innerHTML = `<i data-lucide="${config.icon}" class="w-8 h-8 ${config.iconColor}"></i>`;
-
-            // Answer text
+            document.getElementById('status-icon').innerHTML = `<i data-lucide="${config.icon}" class="w-8 h-8 ${config.iconColor}"></i>`;
             document.getElementById('status-answer').textContent = config.answer;
-
-            // Explanation
             document.getElementById('status-explanation').textContent = config.explanation;
 
-            // Price display
+            document.getElementById('price-row').classList.remove('hidden');
+            document.getElementById('score-meter-container').classList.add('hidden');
             document.getElementById('price-display').innerHTML =
                 `Marktprijs nu: <strong>&euro;${currentPrice.toFixed(4)}/kWh</strong> &mdash; wasbeurt kost ca. <strong>&euro;${washCost}</strong>`;
 
-            // Time display
             document.getElementById('time-display').textContent =
                 `Laatst bijgewerkt: ${now.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}`;
-
-            // Tip
             document.getElementById('tip-text').textContent = config.tip;
 
-            // Ads: show green or red/orange set
-            document.getElementById('ads-green').classList.toggle('hidden', status !== 'GREEN');
-            document.getElementById('ads-red').classList.toggle('hidden', status === 'GREEN');
+            document.getElementById('ads-green').classList.toggle('hidden', config.adGroup !== 'green');
+            document.getElementById('ads-red').classList.toggle('hidden', config.adGroup !== 'red');
 
-            // Best time today
+            document.getElementById('best-time-section').classList.remove('hidden');
+            document.getElementById('hourly-table-section').classList.remove('hidden');
+
             renderBestTime(hourlyPrices);
-
-            // Hourly table
             renderHourlyTable(hourlyPrices, now.getHours());
 
-            // Re-initialize Lucide icons for dynamically added elements
-            lucide.createIcons();
-
-            // Show app, hide loading
             document.getElementById('loading').classList.add('hidden');
             document.getElementById('app').classList.remove('hidden');
+            lucide.createIcons();
         }
 
         function renderBestTime(hourlyPrices) {
@@ -655,15 +827,11 @@
                 document.getElementById('best-time-text').textContent = 'Geen uurprijzen beschikbaar.';
                 return;
             }
-
             const now = new Date();
             const currentHour = now.getHours();
-
-            // Find cheapest hour from now onwards
             const futurePrices = hourlyPrices.filter(p => p.hour >= currentHour);
             const pricesToCheck = futurePrices.length > 0 ? futurePrices : hourlyPrices;
             const cheapest = pricesToCheck.reduce((min, p) => p.price < min.price ? p : min, pricesToCheck[0]);
-
             const cheapestCost = (cheapest.price * CONFIG.washCycleKwh).toFixed(2);
 
             if (cheapest.hour === currentHour) {
@@ -688,22 +856,10 @@
             const maxPrice = Math.max(...hourlyPrices.map(p => p.price), 0.01);
 
             tbody.innerHTML = hourlyPrices.map(({ hour, price }) => {
-                const status = getStatus(price);
+                const status = getEntsoeStatus(price);
                 const isCurrent = hour === currentHour;
                 const barWidth = Math.max(4, (price / maxPrice) * 100);
-
-                const barColor = {
-                    GREEN: 'bg-green-400',
-                    ORANGE: 'bg-orange-400',
-                    RED: 'bg-red-400',
-                }[status];
-
-                const dotColor = {
-                    GREEN: 'bg-green-400',
-                    ORANGE: 'bg-orange-400',
-                    RED: 'bg-red-400',
-                }[status];
-
+                const barColor = { GREEN: 'bg-green-400', ORANGE: 'bg-orange-400', RED: 'bg-red-400' }[status];
                 const rowHighlight = isCurrent ? 'bg-gray-50 font-semibold' : '';
                 const hourLabel = `${String(hour).padStart(2, '0')}:00`;
                 const currentMarker = isCurrent ? ' <span class="text-xs text-gray-400">&#9668; nu</span>' : '';
@@ -718,7 +874,7 @@
                             </div>
                         </td>
                         <td class="py-1.5 text-center">
-                            <span class="inline-block w-2.5 h-2.5 rounded-full ${dotColor}"></span>
+                            <span class="inline-block w-2.5 h-2.5 rounded-full ${barColor}"></span>
                         </td>
                     </tr>
                 `;
@@ -730,21 +886,20 @@
         // ============================================================
 
         async function init() {
-            try {
-                const data = await fetchPriceData();
-                render(data);
-            } catch (e) {
-                console.error('Onverwachte fout:', e);
-                // Ultimate fallback: render demo data
-                render(getDemoData());
-            }
+            const [stedin, entsoe] = await Promise.all([
+                fetchStedinData(),
+                fetchEntsoeData(),
+            ]);
+
+            stedinData = stedin;
+            entsoeData = entsoe;
+
+            if (activeSource === 'stedin') renderStedin(stedinData);
+            else renderEntsoe(entsoeData);
         }
 
-        // Initialize on DOM ready
         document.addEventListener('DOMContentLoaded', () => {
             init();
-
-            // Auto-refresh
             setInterval(init, CONFIG.refreshInterval);
         });
     </script>
