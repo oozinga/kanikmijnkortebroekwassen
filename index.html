@@ -64,15 +64,6 @@
         .tab-inactive { background-color: transparent; color: #9ca3af; }
         .tab-inactive:hover { color: #6b7280; }
 
-        /* Stedin logo wordmark */
-        .stedin-logo {
-            font-weight: 800;
-            letter-spacing: -0.03em;
-            color: #47555D;
-        }
-        .stedin-logo .stedin-dot {
-            color: #FFE873;
-        }
     </style>
 </head>
 <body class="min-h-screen status-green font-sans">
@@ -101,14 +92,8 @@
                 <button id="tab-stedin" onclick="switchSource('stedin')"
                     class="tab-active rounded-full px-4 py-1.5 text-sm transition-all duration-200 cursor-pointer">
                     <span class="flex items-center gap-1.5">
-                        <!-- Stedin logo inline SVG -->
-                        <svg viewBox="0 0 260 80" class="h-4 w-auto" aria-label="Stedin eKlok">
-                            <text x="0" y="58" font-family="Inter, system-ui, sans-serif" font-weight="800" font-size="62" letter-spacing="-2" fill="#47555D">sted</text>
-                            <text x="148" y="58" font-family="Inter, system-ui, sans-serif" font-weight="800" font-size="62" letter-spacing="-2" fill="#47555D">i</text>
-                            <circle cx="157" cy="16" r="7" fill="#FFE873"/>
-                            <text x="168" y="58" font-family="Inter, system-ui, sans-serif" font-weight="800" font-size="62" letter-spacing="-2" fill="#47555D">n</text>
-                        </svg>
-                        <span class="text-gray-400 font-normal">eKlok</span>
+                        <i data-lucide="gauge" class="w-3.5 h-3.5"></i>
+                        Stedin eKlok
                     </span>
                 </button>
                 <button id="tab-entsoe" onclick="switchSource('entsoe')"
@@ -118,16 +103,6 @@
                         ENTSO-E
                     </span>
                 </button>
-            </div>
-        </div>
-
-        <!-- Demo Mode Banner -->
-        <div id="demo-banner" class="hidden mx-4 mb-4 max-w-lg lg:max-w-xl mx-auto">
-            <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
-                <i data-lucide="info" class="w-5 h-5 text-amber-500 flex-shrink-0"></i>
-                <p class="text-amber-700 text-sm">
-                    <span class="font-semibold">Demo modus</span> &mdash; Live data kon niet worden opgehaald. Je ziet nu voorbeelddata.
-                </p>
             </div>
         </div>
 
@@ -374,21 +349,16 @@
         // ============================================================
 
         async function fetchStedinData() {
-            try {
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 8000);
-                const response = await fetch(CONFIG.eklokApiUrl, {
-                    signal: controller.signal,
-                    headers: { 'Accept': 'application/json' },
-                });
-                clearTimeout(timeout);
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const data = await response.json();
-                return parseStedinResponse(data);
-            } catch (e) {
-                console.warn('eKlok API niet bereikbaar, start demo modus...', e.message);
-                return getStedinDemoData();
-            }
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 8000);
+            const response = await fetch(CONFIG.eklokApiUrl, {
+                signal: controller.signal,
+                headers: { 'Accept': 'application/json' },
+            });
+            clearTimeout(timeout);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            return parseStedinResponse(data);
         }
 
         function parseStedinResponse(data) {
@@ -400,62 +370,51 @@
                 score = typeof data.current === 'number' ? data.current : (data.current.score ?? data.current.value ?? null);
             }
             if (score === null || typeof score !== 'number') {
-                console.warn('Kan eKlok score niet parsen, fallback naar demo');
-                return getStedinDemoData();
+                throw new Error('Kan eKlok score niet parsen');
             }
-            return { isDemo: false, score: Math.max(-100, Math.min(100, score)) };
-        }
-
-        function getStedinDemoData() {
-            const hour = new Date().getHours();
-            const baseScores = [
-                60, 70, 75, 80, 70, 50,
-                20, -20, -50, -30, 0, 15,
-                25, 35, 40, 20, -10, -60,
-                -70, -40, -10, 20, 40, 55,
-            ];
-            const variation = Math.floor((Math.random() - 0.5) * 20);
-            return { isDemo: true, score: Math.max(-100, Math.min(100, baseScores[hour] + variation)) };
+            return { score: Math.max(-100, Math.min(100, score)) };
         }
 
         // ============================================================
         // Stedin Score → Status
         // ============================================================
 
+        const STEDIN_LOGO = '<img src="https://logovectorseek.com/wp-content/uploads/2020/09/stedin-net-logo-vector.png" alt="Stedin" class="inline-block h-5 align-middle -mt-0.5 mx-0.5">';
+
         function getStedinConfig(score) {
             if (score >= 70) return {
                 answer: 'JA!', bodyClass: 'status-green-bright', circleBg: 'bg-emerald-500',
-                explanation: 'Het is volgens Stedin een FANTASTISCH moment om je korte broek te wassen',
+                explanation: `Het is volgens ${STEDIN_LOGO} een FANTASTISCH moment om je korte broek te wassen`,
                 tip: 'Tip: Het net is super rustig! Ideaal moment om ook de droger aan te zetten.',
                 icon: 'check', iconColor: 'text-white', adGroup: 'green',
             };
             if (score >= 30) return {
                 answer: 'JA', bodyClass: 'status-green', circleBg: 'bg-green-500',
-                explanation: 'Het is volgens Stedin een goed moment om je korte broek te wassen',
+                explanation: `Het is volgens ${STEDIN_LOGO} een goed moment om je korte broek te wassen`,
                 tip: 'Tip: Was op 30\u00b0C om nog meer te besparen. Een koud wasprogramma gebruikt tot 60% minder energie!',
                 icon: 'check', iconColor: 'text-white', adGroup: 'green',
             };
             if (score >= 0) return {
                 answer: 'PRIMA', bodyClass: 'status-green', circleBg: 'bg-lime-500',
-                explanation: 'Het is volgens Stedin een prima moment om je korte broek te wassen',
+                explanation: `Het is volgens ${STEDIN_LOGO} een prima moment om je korte broek te wassen`,
                 tip: 'Tip: Goed moment, maar het kan straks misschien nog beter. Check later opnieuw als je geen haast hebt.',
                 icon: 'thumbs-up', iconColor: 'text-white', adGroup: 'green',
             };
             if (score >= -30) return {
                 answer: 'MEH', bodyClass: 'status-orange', circleBg: 'bg-orange-400',
-                explanation: 'Het is volgens Stedin een matig moment om je broek te wassen',
+                explanation: `Het is volgens ${STEDIN_LOGO} een matig moment om je broek te wassen`,
                 tip: 'Tip: Het net is redelijk druk. Wacht als het kan nog even tot een rustiger moment.',
                 icon: 'minus', iconColor: 'text-white', adGroup: 'red',
             };
             if (score >= -80) return {
                 answer: 'NEE', bodyClass: 'status-red', circleBg: 'bg-red-500',
-                explanation: 'Het is volgens Stedin een behoorlijk slecht moment om je korte broek te wassen',
+                explanation: `Het is volgens ${STEDIN_LOGO} een behoorlijk slecht moment om je korte broek te wassen`,
                 tip: 'Tip: Het stroomnet is druk. Wacht een paar uur tot de piek voorbij is.',
                 icon: 'x', iconColor: 'text-white', adGroup: 'red',
             };
             return {
                 answer: 'NEE!', bodyClass: 'status-red-deep', circleBg: 'bg-red-700',
-                explanation: 'Het is volgens Stedin een vreselijk moment om je korte broek te wassen',
+                explanation: `Het is volgens ${STEDIN_LOGO} een vreselijk moment om je korte broek te wassen`,
                 tip: 'Tip: Het net staat op knappen! Gebruik nu zo min mogelijk zware apparaten. Probeer het vanavond laat of morgenochtend vroeg.',
                 icon: 'alert-triangle', iconColor: 'text-white', adGroup: 'red',
             };
@@ -469,23 +428,14 @@
             // Attempt 1: Direct ENTSO-E Transparency Platform API
             if (CONFIG.entsoeToken) {
                 try {
-                    const data = await fetchEntsoeDirectApi();
-                    return data;
+                    return await fetchEntsoeDirectApi();
                 } catch (e) {
                     console.warn('ENTSO-E API niet bereikbaar, probeer Energy-Charts...', e.message);
                 }
             }
 
             // Attempt 2: Energy-Charts API (serves same ENTSO-E data, no auth)
-            try {
-                const data = await fetchEnergyChartsApi();
-                return data;
-            } catch (e) {
-                console.warn('Energy-Charts API niet bereikbaar, start demo modus...', e.message);
-            }
-
-            // Attempt 3: Demo mode
-            return getEntsoeDemoData();
+            return await fetchEnergyChartsApi();
         }
 
         /**
@@ -589,7 +539,6 @@
             }
 
             return {
-                isDemo: false,
                 currentPrice,
                 hourlyPrices: hourlyPrices.sort((a, b) => a.hour - b.hour),
             };
@@ -666,30 +615,7 @@
                 currentPrice = sorted[0].price;
             }
 
-            return { isDemo: false, currentPrice, hourlyPrices: hourlyPrices.sort((a, b) => a.hour - b.hour) };
-        }
-
-        function getEntsoeDemoData() {
-            const now = new Date();
-            const currentHour = now.getHours();
-            const hourlyPrices = [];
-            const basePrices = [
-                0.04, 0.03, 0.02, 0.02, 0.03, 0.05,
-                0.07, 0.12, 0.18, 0.15, 0.11, 0.09,
-                0.08, 0.07, 0.06, 0.08, 0.13, 0.22,
-                0.26, 0.21, 0.14, 0.09, 0.06, 0.05,
-            ];
-
-            for (let h = 0; h < 24; h++) {
-                const variation = (Math.random() - 0.5) * 0.02;
-                hourlyPrices.push({
-                    hour: h,
-                    price: Math.round(Math.max(0, basePrices[h] + variation) * 10000) / 10000,
-                    date: new Date(now.getFullYear(), now.getMonth(), now.getDate(), h),
-                });
-            }
-
-            return { isDemo: true, currentPrice: hourlyPrices[currentHour].price, hourlyPrices };
+            return { currentPrice, hourlyPrices: hourlyPrices.sort((a, b) => a.hour - b.hour) };
         }
 
         // ============================================================
@@ -731,7 +657,7 @@
         // ============================================================
 
         function renderStedin(data) {
-            const { score, isDemo } = data;
+            const { score } = data;
             const config = getStedinConfig(score);
             const now = new Date();
 
@@ -742,13 +668,12 @@
                 'De was-aanbeveling is indicatief en houdt geen rekening met je specifieke wasmachine of energiecontract.';
 
             document.body.className = `min-h-screen font-sans ${config.bodyClass}`;
-            document.getElementById('demo-banner').classList.toggle('hidden', !isDemo);
 
             const circle = document.getElementById('status-circle');
             circle.className = `w-44 h-44 md:w-52 md:h-52 rounded-full flex flex-col items-center justify-center pulse-ring shadow-lg ${config.circleBg}`;
             document.getElementById('status-icon').innerHTML = `<i data-lucide="${config.icon}" class="w-8 h-8 ${config.iconColor}"></i>`;
             document.getElementById('status-answer').textContent = config.answer;
-            document.getElementById('status-explanation').textContent = config.explanation;
+            document.getElementById('status-explanation').innerHTML = config.explanation;
 
             document.getElementById('price-row').classList.add('hidden');
             document.getElementById('score-meter-container').classList.remove('hidden');
@@ -777,7 +702,7 @@
         // ============================================================
 
         function renderEntsoe(data) {
-            const { currentPrice, hourlyPrices, isDemo } = data;
+            const { currentPrice, hourlyPrices } = data;
             const status = getEntsoeStatus(currentPrice);
             const config = getEntsoeConfig(status);
             const now = new Date();
@@ -791,7 +716,6 @@
                 'De was-aanbeveling is indicatief en houdt geen rekening met je specifieke wasmachine of contract.';
 
             document.body.className = `min-h-screen font-sans ${config.bodyClass}`;
-            document.getElementById('demo-banner').classList.toggle('hidden', !isDemo);
 
             const circle = document.getElementById('status-circle');
             circle.className = `w-44 h-44 md:w-52 md:h-52 rounded-full flex flex-col items-center justify-center pulse-ring shadow-lg ${config.circleBg}`;
@@ -886,16 +810,25 @@
         // ============================================================
 
         async function init() {
-            const [stedin, entsoe] = await Promise.all([
+            const results = await Promise.allSettled([
                 fetchStedinData(),
                 fetchEntsoeData(),
             ]);
 
-            stedinData = stedin;
-            entsoeData = entsoe;
+            if (results[0].status === 'fulfilled') stedinData = results[0].value;
+            else console.warn('Stedin data ophalen mislukt:', results[0].reason?.message);
 
-            if (activeSource === 'stedin') renderStedin(stedinData);
-            else renderEntsoe(entsoeData);
+            if (results[1].status === 'fulfilled') entsoeData = results[1].value;
+            else console.warn('ENTSO-E data ophalen mislukt:', results[1].reason?.message);
+
+            if (activeSource === 'stedin' && stedinData) renderStedin(stedinData);
+            else if (activeSource === 'entsoe' && entsoeData) renderEntsoe(entsoeData);
+            else if (stedinData) { activeSource = 'stedin'; renderStedin(stedinData); }
+            else if (entsoeData) { activeSource = 'entsoe'; renderEntsoe(entsoeData); }
+
+            // Show app even if no data loaded yet (will retry on interval)
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('app').classList.remove('hidden');
         }
 
         document.addEventListener('DOMContentLoaded', () => {
