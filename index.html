@@ -347,7 +347,7 @@
         }
 
         // ============================================================
-        // Stedin eKlok API (Shapeshifter → eKlok fallback → silent fallback)
+        // Stedin eKlok API (Shapeshifter → eKlok fallback)
         // ============================================================
 
         async function fetchStedinData() {
@@ -359,14 +359,7 @@
             }
 
             // Attempt 2: Stedin eKlok direct
-            try {
-                return await fetchEklokApi();
-            } catch (e) {
-                console.warn('eKlok API niet bereikbaar, gebruik fallback...', e.message);
-            }
-
-            // Attempt 3: silent fallback based on time of day
-            return getStedinFallbackData();
+            return await fetchEklokApi();
         }
 
         async function fetchShapeshifterApi() {
@@ -379,6 +372,7 @@
                 clearTimeout(timeout);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const text = await response.text();
+                console.log('Shapeshifter raw response:', text);
                 // Try JSON first, fall back to plain text
                 let data;
                 try { data = JSON.parse(text); } catch { data = text; }
@@ -451,20 +445,6 @@
             return null;
         }
 
-        function getStedinFallbackData() {
-            // Time-based estimation: grid is busier during peak hours (17-21), quieter at night/early morning
-            const hour = new Date().getHours();
-            let score;
-            if (hour >= 0 && hour < 6) score = 60 + Math.floor(Math.random() * 20);       // night: quiet grid
-            else if (hour >= 6 && hour < 9) score = 10 + Math.floor(Math.random() * 20);   // morning ramp-up
-            else if (hour >= 9 && hour < 12) score = 20 + Math.floor(Math.random() * 20);  // late morning
-            else if (hour >= 12 && hour < 14) score = 30 + Math.floor(Math.random() * 20); // midday
-            else if (hour >= 14 && hour < 17) score = 15 + Math.floor(Math.random() * 20); // afternoon
-            else if (hour >= 17 && hour < 21) score = -30 + Math.floor(Math.random() * 30); // evening peak
-            else score = 20 + Math.floor(Math.random() * 20);                               // late evening
-            return { score };
-        }
-
         // ============================================================
         // Stedin Score → Status
         // ============================================================
@@ -525,27 +505,7 @@
             }
 
             // Attempt 2: Energy-Charts API (serves same ENTSO-E data, no auth)
-            try {
-                return await fetchEnergyChartsApi();
-            } catch (e) {
-                console.warn('Energy-Charts API niet bereikbaar, gebruik fallback...', e.message);
-            }
-
-            // Attempt 3: silent fallback with realistic price curve
-            return getEntsoeFallbackData();
-        }
-
-        function getEntsoeFallbackData() {
-            const now = new Date();
-            const currentHour = now.getHours();
-            // Typical Dutch day-ahead price curve (EUR/MWh)
-            const typicalPrices = [45,42,40,38,37,39,48,65,78,72,60,55,50,48,47,50,58,75,85,70,55,50,47,45];
-            const hourlyPrices = typicalPrices.map((mwh, hour) => ({
-                hour,
-                price: Math.round((mwh / 1000) * 10000) / 10000,
-                date: new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour),
-            }));
-            return { currentPrice: hourlyPrices[currentHour].price, hourlyPrices };
+            return await fetchEnergyChartsApi();
         }
 
         /**
