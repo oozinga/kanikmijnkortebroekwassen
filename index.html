@@ -406,42 +406,40 @@
         }
 
         function parseStedinResponse(data) {
-            // Try to find a numeric score from various possible response shapes
             let score = null;
+            let updatedAt = null;
 
-            // Direct top-level fields
-            if (score === null) score = extractNumber(data.score ?? data.value ?? data.eklok_value ?? data.eklokValue ?? data.percentage ?? data.load ?? data.signal ?? null);
-
-            // Nested under .data
-            if (score === null && data.data) {
-                score = extractNumber(data.data.score ?? data.data.value ?? data.data.eklok_value ?? data.data.eklokValue ?? data.data.percentage ?? null);
+            // Energyfact Shapeshifter format: "scoreUUUtimestamp1UUUtimestamp2"
+            if (typeof data === 'string' && data.includes('UUU')) {
+                const parts = data.split('UUU');
+                score = extractNumber(parts[0]);
+                if (parts[1]) updatedAt = new Date(parts[1].trim());
             }
 
-            // Nested under .current
-            if (score === null && data.current) {
-                score = typeof data.current === 'number' ? data.current : extractNumber(data.current.score ?? data.current.value ?? null);
+            // Direct top-level fields (JSON object responses)
+            if (score === null && typeof data === 'object' && data !== null) {
+                score = extractNumber(data.score ?? data.value ?? data.eklok_value ?? data.eklokValue ?? data.percentage ?? data.load ?? data.signal ?? null);
+
+                if (score === null && data.data) {
+                    score = extractNumber(data.data.score ?? data.data.value ?? data.data.eklok_value ?? data.data.eklokValue ?? data.data.percentage ?? null);
+                }
+                if (score === null && data.current) {
+                    score = typeof data.current === 'number' ? data.current : extractNumber(data.current.score ?? data.current.value ?? null);
+                }
+                if (score === null && data.result) {
+                    score = typeof data.result === 'number' ? data.result : extractNumber(data.result.score ?? data.result.value ?? data.result.eklok_value ?? null);
+                }
             }
 
-            // Nested under .result
-            if (score === null && data.result) {
-                score = typeof data.result === 'number' ? data.result : extractNumber(data.result.score ?? data.result.value ?? data.result.eklok_value ?? null);
-            }
-
-            // If it's just a plain number
-            if (score === null && typeof data === 'number') {
-                score = data;
-            }
-
-            // If it's a plain string number
-            if (score === null && typeof data === 'string' && !isNaN(parseFloat(data))) {
-                score = parseFloat(data);
-            }
+            // Plain number or numeric string
+            if (score === null && typeof data === 'number') score = data;
+            if (score === null && typeof data === 'string') score = extractNumber(data);
 
             if (score === null || typeof score !== 'number' || isNaN(score)) {
                 console.log('Shapeshifter/eKlok response:', JSON.stringify(data).slice(0, 500));
                 throw new Error('Kan eKlok score niet parsen');
             }
-            return { score: Math.max(-100, Math.min(100, score)) };
+            return { score: Math.max(-100, Math.min(100, score)), updatedAt };
         }
 
         function extractNumber(val) {
@@ -792,8 +790,10 @@
             document.getElementById('score-needle').style.left = `calc(${needlePercent}% - 2px)`;
             document.getElementById('score-display').textContent = `Netbelasting score: ${score > 0 ? '+' : ''}${score}`;
 
-            document.getElementById('time-display').textContent =
-                `Laatst bijgewerkt: ${now.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}`;
+            const displayTime = (data.updatedAt && !isNaN(data.updatedAt))
+                ? data.updatedAt.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+                : now.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('time-display').textContent = `Laatst bijgewerkt: ${displayTime}`;
             document.getElementById('tip-text').textContent = config.tip;
 
             document.getElementById('ads-green').classList.toggle('hidden', config.adGroup !== 'green');
