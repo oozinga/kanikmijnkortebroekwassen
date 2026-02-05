@@ -303,6 +303,10 @@
         // Configuration
         // ============================================================
         const CONFIG = {
+            // Lokaal JSON-bestand met Stedin score (heeft prioriteit over API's)
+            // Verwacht formaat: {"score": -52} of {"score": -52, "updatedAt": "2026-02-04T22:22:00Z"}
+            stedinJsonUrl: 'stedin.json',
+
             // Energyfact Shapeshifter API (realtime eKlok data)
             shapeshifterApiUrl: 'https://enexis.energyfact.nl/shapeshifter/api/v3/eklok_value',
             // Stedin eKlok (legacy fallback)
@@ -347,19 +351,38 @@
         }
 
         // ============================================================
-        // Stedin eKlok API (Shapeshifter → eKlok fallback)
+        // Stedin eKlok data (JSON → Shapeshifter API → eKlok fallback)
         // ============================================================
 
         async function fetchStedinData() {
-            // Attempt 1: Energyfact Shapeshifter API
+            // Attempt 1: Lokaal JSON-bestand
+            if (CONFIG.stedinJsonUrl) {
+                try {
+                    return await fetchStedinJson();
+                } catch (e) {
+                    console.warn('Stedin JSON niet beschikbaar, probeer Shapeshifter API...', e.message);
+                }
+            }
+
+            // Attempt 2: Energyfact Shapeshifter API
             try {
                 return await fetchShapeshifterApi();
             } catch (e) {
                 console.warn('Shapeshifter API niet bereikbaar, probeer eKlok...', e.message);
             }
 
-            // Attempt 2: Stedin eKlok direct
+            // Attempt 3: Stedin eKlok direct
             return await fetchEklokApi();
+        }
+
+        async function fetchStedinJson() {
+            const response = await fetch(CONFIG.stedinJsonUrl, { cache: 'no-store' });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            const score = extractNumber(data.score ?? data.value ?? data.eklok_value ?? null);
+            if (score === null) throw new Error('Geen score in JSON');
+            const updatedAt = data.updatedAt ? new Date(data.updatedAt) : null;
+            return { score: Math.max(-100, Math.min(100, score)), updatedAt };
         }
 
         async function fetchShapeshifterApi() {
