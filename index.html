@@ -512,9 +512,11 @@
                 clearTimeout(timeout);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const data = await response.json();
+                console.log('Energyfact prijzen response:', data);
                 return parseEnergyfactPricesResponse(data);
             } catch (e) {
                 clearTimeout(timeout);
+                console.error('Energyfact prijzen fout:', e);
                 throw e;
             }
         }
@@ -525,14 +527,15 @@
             if (isNaN(currentPrice)) throw new Error('Geen price_dam in response');
 
             const now = new Date();
-            const todayStr = now.toISOString().slice(0, 10);
-            const currentHour = now.getHours();
+            // Gebruik lokale datum voor vergelijking
+            const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
             const hourlyPrices = [];
 
             if (data.prices && typeof data.prices === 'object') {
                 for (const [timestamp, price] of Object.entries(data.prices)) {
                     const date = new Date(timestamp.replace(' ', 'T'));
-                    const dateStr = date.toISOString().slice(0, 10);
+                    // Gebruik lokale datum/uur
+                    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
                     // Alleen prijzen van vandaag tonen
                     if (dateStr === todayStr) {
                         hourlyPrices.push({
@@ -544,12 +547,17 @@
                 }
             }
 
-            // Sorteer op uur
-            hourlyPrices.sort((a, b) => a.hour - b.hour);
+            // Sorteer op uur en verwijder duplicaten (neem laatste waarde per uur)
+            const hourMap = new Map();
+            for (const p of hourlyPrices) {
+                hourMap.set(p.hour, p);
+            }
+            const uniqueHourlyPrices = Array.from(hourMap.values()).sort((a, b) => a.hour - b.hour);
 
-            if (hourlyPrices.length === 0) throw new Error('Geen prijsdata voor vandaag');
+            console.log('Prijzen vandaag:', uniqueHourlyPrices.length, 'uren');
+            if (uniqueHourlyPrices.length === 0) throw new Error('Geen prijsdata voor vandaag');
 
-            return { currentPrice, hourlyPrices };
+            return { currentPrice, hourlyPrices: uniqueHourlyPrices };
         }
 
         /**
@@ -569,9 +577,11 @@
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
                 const data = await response.json();
+                console.log('Energy-Charts response ontvangen');
                 return parseEnergyChartsResponse(data);
             } catch (e) {
                 clearTimeout(timeout);
+                console.error('Energy-Charts fout:', e);
                 throw e;
             }
         }
