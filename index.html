@@ -132,7 +132,7 @@
                             <span>0</span>
                             <span>+100</span>
                         </div>
-                        <div class="h-3 bg-gradient-to-r from-red-400 via-orange-300 via-yellow-200 to-green-400 rounded-full relative overflow-hidden">
+                        <div class="h-3 bg-gradient-to-r from-green-400 via-yellow-200 via-orange-300 to-red-400 rounded-full relative overflow-hidden">
                             <div id="score-needle" class="absolute top-0 w-1 h-3 bg-gray-800 rounded-full transition-all duration-700" style="left: 50%"></div>
                         </div>
                         <p id="score-display" class="text-xs text-gray-500 mt-1.5"></p>
@@ -446,31 +446,32 @@
         const STEDIN_LOGO = '<img src="https://logovectorseek.com/wp-content/uploads/2020/09/stedin-net-logo-vector.png" alt="Stedin" class="inline-block h-5 align-middle -mt-0.5 mx-0.5">';
 
         function getStedinConfig(score) {
-            if (score >= 70) return {
+            // Lage score = goed (groen), hoge score = slecht (rood)
+            if (score <= -70) return {
                 answer: 'JA!', bodyClass: 'status-green-bright', circleBg: 'bg-emerald-500',
                 explanation: `Het is volgens ${STEDIN_LOGO} een FANTASTISCH moment om je korte broek te wassen`,
                 tip: 'Tip: Het net is super rustig! Ideaal moment om ook de droger aan te zetten.',
                 icon: 'check', iconColor: 'text-white', adGroup: 'green',
             };
-            if (score >= 30) return {
+            if (score <= -30) return {
                 answer: 'JA', bodyClass: 'status-green', circleBg: 'bg-green-500',
                 explanation: `Het is volgens ${STEDIN_LOGO} een goed moment om je korte broek te wassen`,
                 tip: 'Tip: Was op 30\u00b0C om nog meer te besparen. Een koud wasprogramma gebruikt tot 60% minder energie!',
                 icon: 'check', iconColor: 'text-white', adGroup: 'green',
             };
-            if (score >= 0) return {
+            if (score <= 0) return {
                 answer: 'PRIMA', bodyClass: 'status-green', circleBg: 'bg-lime-500',
                 explanation: `Het is volgens ${STEDIN_LOGO} een prima moment om je korte broek te wassen`,
                 tip: 'Tip: Goed moment, maar het kan straks misschien nog beter. Check later opnieuw als je geen haast hebt.',
                 icon: 'thumbs-up', iconColor: 'text-white', adGroup: 'green',
             };
-            if (score >= -30) return {
+            if (score <= 30) return {
                 answer: 'MEH', bodyClass: 'status-orange', circleBg: 'bg-orange-400',
                 explanation: `Het is volgens ${STEDIN_LOGO} een matig moment om je broek te wassen`,
                 tip: 'Tip: Het net is redelijk druk. Wacht als het kan nog even tot een rustiger moment.',
                 icon: 'minus', iconColor: 'text-white', adGroup: 'red',
             };
-            if (score >= -80) return {
+            if (score <= 80) return {
                 answer: 'NEE', bodyClass: 'status-red', circleBg: 'bg-red-500',
                 explanation: `Het is volgens ${STEDIN_LOGO} een behoorlijk slecht moment om je korte broek te wassen`,
                 tip: 'Tip: Het stroomnet is druk. Wacht een paar uur tot de piek voorbij is.',
