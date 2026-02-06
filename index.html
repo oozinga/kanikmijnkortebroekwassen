@@ -188,19 +188,19 @@
                 <!-- ORANGE/RED Ads -->
                 <div id="ads-red" class="hidden space-y-3">
                     <p class="text-xs font-medium text-gray-400 uppercase tracking-wider px-1">Aanbevolen</p>
-                    <a href="YOUR_AFFILIATE_URL_BIJENKORF" target="_blank" rel="noopener sponsored" class="ad-card block bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+                    <a href="https://www.mrmarvis.com/nl/collections/all-shorts" target="_blank" rel="noopener sponsored" class="ad-card block bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
                         <div class="flex items-center gap-4">
                             <div class="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center flex-shrink-0">
                                 <i data-lucide="shopping-bag" class="w-6 h-6 text-purple-500"></i>
                             </div>
                             <div class="flex-1 min-w-0">
                                 <p class="font-semibold text-gray-800 text-sm">Geen schone was? Koop een reserve short</p>
-                                <p class="text-gray-500 text-xs mt-0.5">de Bijenkorf &mdash; Topmerken korte broeken</p>
+                                <p class="text-gray-500 text-xs mt-0.5">MR Marvis f &mdash; Eindeloos veel kleuren</p>
                             </div>
                             <i data-lucide="chevron-right" class="w-5 h-5 text-gray-300 flex-shrink-0"></i>
                         </div>
                     </a>
-                    <a href="YOUR_AFFILIATE_URL_COOLBLUE" target="_blank" rel="noopener sponsored" class="ad-card block bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+                    <a href="https://www.coolblue.nl/wasmachines" target="_blank" rel="noopener sponsored" class="ad-card block bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
                         <div class="flex items-center gap-4">
                             <div class="w-12 h-12 bg-sky-50 rounded-xl flex items-center justify-center flex-shrink-0">
                                 <i data-lucide="washing-machine" class="w-6 h-6 text-sky-500"></i>
@@ -721,10 +721,9 @@
 
             document.getElementById('subtitle').textContent = 'Op basis van ENTSO-E day-ahead marktprijzen';
             document.getElementById('disclaimer-text').innerHTML =
-                'De getoonde energieprijzen zijn day-ahead marktprijzen (excl. belastingen) via de ' +
-                '<a href="https://transparency.entsoe.eu/" target="_blank" rel="noopener" class="underline hover:text-gray-600">ENTSO-E Transparency Platform</a>. ' +
-                'Je werkelijke energieprijs hangt af van je energiecontract, energiebelasting en netwerkkosten. ' +
-                'De was-aanbeveling is indicatief en houdt geen rekening met je specifieke wasmachine of contract.';
+                'De getoonde energieprijzen EPEX SPOT zijn day-ahead marktprijzen (excl. belastingen) via de easyEnergy API ' +
+                'Je werkelijke energieprijs hangt af van je energiecontract en de energiebelasting. ' +
+                'De was-aanbeveling is indicatief en houdt geen rekening met je specifieke wasmachine en de kosten van het wasmiddel.';
 
             document.body.className = `min-h-screen font-sans ${config.bodyClass}`;
 
