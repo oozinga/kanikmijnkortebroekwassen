@@ -303,24 +303,11 @@
         // Configuration
         // ============================================================
         const CONFIG = {
-            // JSON data-bron (lokaal of extern, heeft prioriteit over API's)
-            // Verwacht formaat: {"score": -52} of {"score": -52, "updatedAt": "2026-02-04T22:22:00Z"}
-            // Kan ook een externe URL zijn, bijv.: 'https://energyfact.nl/api/eklok.json'
-            stedinJsonUrl: 'https://enexis.energyfact.nl/shapeshifter/api/v3/eklok_value.json',
+            // Energyfact API (primaire databron voor zowel Stedin als ENTSO-E)
+            energyfactApiUrl: 'https://enexis.energyfact.nl/shapeshifter/api/v3/eklok_value',
 
-            // Energyfact Shapeshifter API (realtime eKlok data)
-            shapeshifterApiUrl: 'https://enexis.energyfact.nl/shapeshifter/api/v3/eklok_value',
-            // Stedin eKlok (legacy fallback)
+            // Legacy fallbacks (gebruikt als Energyfact niet bereikbaar is)
             eklokApiUrl: 'https://www.eklok.nl/api/pricedetail',
-
-            // ENTSO-E Transparency Platform (requires API token)
-            // Register at https://transparency.entsoe.eu/ and request API access
-            // Docs: https://documenter.getpostman.com/view/7009892/2s93JtP3F6
-            entsoeApiUrl: 'https://web-api.tp.entsoe.eu/api',
-            entsoeToken: '', // <-- Vul hier je ENTSO-E security token in
-            entsoeDomain: '10YNL----------L', // Netherlands bidding zone
-
-            // Energy-Charts fallback (same ENTSO-E data, no auth needed)
             energyChartsApiUrl: 'https://api.energy-charts.info/price',
 
             // ENTSO-E price thresholds in EUR/kWh (day-ahead marktprijs, excl. belastingen)
@@ -352,51 +339,33 @@
         }
 
         // ============================================================
-        // Stedin eKlok data (JSON → Shapeshifter API → eKlok fallback)
+        // Stedin eKlok data (Energyfact API → eKlok fallback)
         // ============================================================
 
         async function fetchStedinData() {
-            // Attempt 1: Lokaal JSON-bestand
-            if (CONFIG.stedinJsonUrl) {
-                try {
-                    return await fetchStedinJson();
-                } catch (e) {
-                    console.warn('Stedin JSON niet beschikbaar, probeer Shapeshifter API...', e.message);
-                }
-            }
-
-            // Attempt 2: Energyfact Shapeshifter API
+            // Attempt 1: Energyfact API
             try {
-                return await fetchShapeshifterApi();
+                return await fetchEnergyfactApi();
             } catch (e) {
-                console.warn('Shapeshifter API niet bereikbaar, probeer eKlok...', e.message);
+                console.warn('Energyfact API niet bereikbaar, probeer eKlok...', e.message);
             }
 
-            // Attempt 3: Stedin eKlok direct
+            // Attempt 2: Stedin eKlok direct
             return await fetchEklokApi();
         }
 
-        async function fetchStedinJson() {
-            const response = await fetch(CONFIG.stedinJsonUrl, { cache: 'no-store' });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const text = await response.text();
-            // Ondersteunt JSON, Shapeshifter UUU-formaat, of platte tekst
-            let data;
-            try { data = JSON.parse(text); } catch { data = text; }
-            return parseStedinResponse(data);
-        }
-
-        async function fetchShapeshifterApi() {
+        async function fetchEnergyfactApi() {
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 8000);
             try {
-                const response = await fetch(CONFIG.shapeshifterApiUrl, {
+                const response = await fetch(CONFIG.energyfactApiUrl, {
                     signal: controller.signal,
+                    cache: 'no-store',
                 });
                 clearTimeout(timeout);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const text = await response.text();
-                console.log('Shapeshifter raw response:', text);
+                console.log('Energyfact raw response:', text);
                 // Try JSON first, fall back to plain text
                 let data;
                 try { data = JSON.parse(text); } catch { data = text; }
@@ -429,7 +398,7 @@
             let score = null;
             let updatedAt = null;
 
-            // Energyfact Shapeshifter format: "scoreUUUtimestamp1UUUtimestamp2"
+            // Energyfact format: "scoreUUUtimestamp1UUUtimestamp2"
             if (typeof data === 'string' && data.includes('UUU')) {
                 const parts = data.split('UUU');
                 score = extractNumber(parts[0]);
@@ -456,7 +425,7 @@
             if (score === null && typeof data === 'string') score = extractNumber(data);
 
             if (score === null || typeof score !== 'number' || isNaN(score)) {
-                console.log('Shapeshifter/eKlok response:', JSON.stringify(data).slice(0, 500));
+                console.log('Energyfact/eKlok response:', JSON.stringify(data).slice(0, 500));
                 throw new Error('Kan eKlok score niet parsen');
             }
             return { score: Math.max(-100, Math.min(100, score)), updatedAt };
@@ -519,127 +488,12 @@
         // ============================================================
 
         async function fetchEntsoeData() {
-            // Attempt 1: Direct ENTSO-E Transparency Platform API
-            if (CONFIG.entsoeToken) {
-                try {
-                    return await fetchEntsoeDirectApi();
-                } catch (e) {
-                    console.warn('ENTSO-E API niet bereikbaar, probeer Energy-Charts...', e.message);
-                }
-            }
-
-            // Attempt 2: Energy-Charts API (serves same ENTSO-E data, no auth)
+            // Attempt 1: Energy-Charts API (ENTSO-E data, no auth needed)
             return await fetchEnergyChartsApi();
         }
 
         /**
-         * Fetch day-ahead prices directly from the ENTSO-E Transparency Platform.
-         * Requires a security token (register at transparency.entsoe.eu).
-         * Docs: https://documenter.getpostman.com/view/7009892/2s93JtP3F6
-         * Returns XML with document type A44 (day-ahead prices).
-         */
-        async function fetchEntsoeDirectApi() {
-            const now = new Date();
-            const startOfDay = new Date(now);
-            startOfDay.setHours(0, 0, 0, 0);
-            const endOfDay = new Date(now);
-            endOfDay.setDate(endOfDay.getDate() + 1);
-            endOfDay.setHours(0, 0, 0, 0);
-
-            // ENTSO-E uses UTC format: yyyyMMddHHmm
-            const fmt = (d) => d.toISOString().replace(/[-:T]/g, '').slice(0, 12);
-
-            const params = new URLSearchParams({
-                securityToken: CONFIG.entsoeToken,
-                documentType: 'A44',
-                in_Domain: CONFIG.entsoeDomain,
-                out_Domain: CONFIG.entsoeDomain,
-                periodStart: fmt(startOfDay),
-                periodEnd: fmt(endOfDay),
-            });
-
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 10000);
-
-            try {
-                const response = await fetch(`${CONFIG.entsoeApiUrl}?${params}`, {
-                    signal: controller.signal,
-                });
-                clearTimeout(timeout);
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-                const xmlText = await response.text();
-                return parseEntsoeXml(xmlText);
-            } catch (e) {
-                clearTimeout(timeout);
-                throw e;
-            }
-        }
-
-        /**
-         * Parse ENTSO-E XML response (document type A44).
-         * Extracts hourly prices from <TimeSeries> → <Period> → <Point> elements.
-         * Prices are in EUR/MWh, converted to EUR/kWh.
-         */
-        function parseEntsoeXml(xmlText) {
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
-
-            const errorEl = xmlDoc.querySelector('Reason text');
-            if (errorEl) throw new Error(`ENTSO-E: ${errorEl.textContent}`);
-
-            const hourlyPrices = [];
-            const currentHour = new Date().getHours();
-            let currentPrice = null;
-
-            const timeSeries = xmlDoc.getElementsByTagName('TimeSeries');
-            for (const ts of timeSeries) {
-                const periods = ts.getElementsByTagName('Period');
-                for (const period of periods) {
-                    // Get the start time of this period
-                    const startEl = period.querySelector('timeInterval start');
-                    const periodStart = startEl ? new Date(startEl.textContent) : new Date();
-
-                    const points = period.getElementsByTagName('Point');
-                    for (const point of points) {
-                        const position = parseInt(point.getElementsByTagName('position')[0].textContent, 10);
-                        const priceMwh = parseFloat(point.getElementsByTagName('price.amount')[0].textContent);
-                        const priceKwh = Math.round((priceMwh / 1000) * 10000) / 10000;
-
-                        // position is 1-based, representing hours from period start
-                        const hour = (periodStart.getUTCHours() + position - 1) % 24;
-
-                        // Avoid duplicates
-                        if (!hourlyPrices.find(p => p.hour === hour)) {
-                            hourlyPrices.push({
-                                hour,
-                                price: priceKwh,
-                                date: new Date(periodStart.getTime() + (position - 1) * 3600000),
-                            });
-                        }
-
-                        if (hour === currentHour && currentPrice === null) {
-                            currentPrice = priceKwh;
-                        }
-                    }
-                }
-            }
-
-            if (hourlyPrices.length === 0) throw new Error('Geen prijsdata in ENTSO-E response');
-
-            if (currentPrice === null) {
-                const sorted = [...hourlyPrices].sort((a, b) => b.hour - a.hour);
-                currentPrice = sorted[0].price;
-            }
-
-            return {
-                currentPrice,
-                hourlyPrices: hourlyPrices.sort((a, b) => a.hour - b.hour),
-            };
-        }
-
-        /**
-         * Fallback: Energy-Charts API (Fraunhofer ISE).
+         * Energy-Charts API (Fraunhofer ISE).
          * Serves the same ENTSO-E day-ahead data, no auth needed, CORS-friendly.
          */
         async function fetchEnergyChartsApi() {
