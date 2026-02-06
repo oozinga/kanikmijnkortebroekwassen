@@ -303,14 +303,15 @@
         // Configuration
         // ============================================================
         const CONFIG = {
-            // Energyfact API (primaire databron voor zowel Stedin als ENTSO-E)
+            // Energyfact API (primaire databron)
             energyfactApiUrl: 'https://enexis.energyfact.nl/shapeshifter/api/v3/eklok_value',
+            energyfactPricesUrl: 'https://enexis.energyfact.nl/shapeshifter/api/v3/prices',
 
             // Legacy fallbacks (gebruikt als Energyfact niet bereikbaar is)
             eklokApiUrl: 'https://www.eklok.nl/api/pricedetail',
             energyChartsApiUrl: 'https://api.energy-charts.info/price',
 
-            // ENTSO-E price thresholds in EUR/kWh (day-ahead marktprijs, excl. belastingen)
+            // Prijsdrempels in EUR/kWh (day-ahead marktprijs, excl. belastingen)
             entsoeThresholds: { green: 0.07, orange: 0.15 },
             washCycleKwh: 1.2,
             refreshInterval: 5 * 60 * 1000,
@@ -484,17 +485,74 @@
         }
 
         // ============================================================
-        // ENTSO-E API (direct + Energy-Charts fallback)
+        // Prijsdata (Energyfact → Energy-Charts fallback)
         // ============================================================
 
         async function fetchEntsoeData() {
-            // Attempt 1: Energy-Charts API (ENTSO-E data, no auth needed)
+            // Attempt 1: Energyfact prijzen API
+            try {
+                return await fetchEnergyfactPricesApi();
+            } catch (e) {
+                console.warn('Energyfact prijzen API niet bereikbaar, probeer Energy-Charts...', e.message);
+            }
+
+            // Attempt 2: Energy-Charts API (fallback)
             return await fetchEnergyChartsApi();
         }
 
+        async function fetchEnergyfactPricesApi() {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 8000);
+            try {
+                const response = await fetch(CONFIG.energyfactPricesUrl, {
+                    signal: controller.signal,
+                    cache: 'no-store',
+                });
+                clearTimeout(timeout);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                return parseEnergyfactPricesResponse(data);
+            } catch (e) {
+                clearTimeout(timeout);
+                throw e;
+            }
+        }
+
+        function parseEnergyfactPricesResponse(data) {
+            // Format: { time_dam_from, price_dam, prices: { "timestamp": price, ... } }
+            const currentPrice = parseFloat(data.price_dam);
+            if (isNaN(currentPrice)) throw new Error('Geen price_dam in response');
+
+            const now = new Date();
+            const todayStr = now.toISOString().slice(0, 10);
+            const currentHour = now.getHours();
+            const hourlyPrices = [];
+
+            if (data.prices && typeof data.prices === 'object') {
+                for (const [timestamp, price] of Object.entries(data.prices)) {
+                    const date = new Date(timestamp.replace(' ', 'T'));
+                    const dateStr = date.toISOString().slice(0, 10);
+                    // Alleen prijzen van vandaag tonen
+                    if (dateStr === todayStr) {
+                        hourlyPrices.push({
+                            hour: date.getHours(),
+                            price: typeof price === 'string' ? parseFloat(price) : price,
+                            date,
+                        });
+                    }
+                }
+            }
+
+            // Sorteer op uur
+            hourlyPrices.sort((a, b) => a.hour - b.hour);
+
+            if (hourlyPrices.length === 0) throw new Error('Geen prijsdata voor vandaag');
+
+            return { currentPrice, hourlyPrices };
+        }
+
         /**
-         * Energy-Charts API (Fraunhofer ISE).
-         * Serves the same ENTSO-E day-ahead data, no auth needed, CORS-friendly.
+         * Energy-Charts API (Fraunhofer ISE) - fallback.
          */
         async function fetchEnergyChartsApi() {
             const url = `${CONFIG.energyChartsApiUrl}?country=nl&resolution=quarter_hourly`;
