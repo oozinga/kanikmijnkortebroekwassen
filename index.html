@@ -303,9 +303,8 @@
         // Configuration
         // ============================================================
         const CONFIG = {
-            // Energyfact API (primaire databron)
+            // Energyfact API (primaire databron - bevat zowel eklok_value als prices)
             energyfactApiUrl: 'https://enexis.energyfact.nl/shapeshifter/api/v3/eklok_value',
-            energyfactPricesUrl: 'https://enexis.energyfact.nl/shapeshifter/api/v3/prices',
 
             // Legacy fallbacks (gebruikt als Energyfact niet bereikbaar is)
             eklokApiUrl: 'https://www.eklok.nl/api/pricedetail',
@@ -323,6 +322,7 @@
         let activeSource = 'stedin';
         let stedinData = null;
         let entsoeData = null;
+        let energyfactRawData = null; // Cache voor volledige Energyfact response
 
         // ============================================================
         // Source Toggle
@@ -375,11 +375,10 @@
                 });
                 clearTimeout(timeout);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const text = await response.text();
-                console.log('Energyfact raw response:', text);
-                // Try JSON first, fall back to plain text
-                let data;
-                try { data = JSON.parse(text); } catch { data = text; }
+                const data = await response.json();
+                console.log('Energyfact response:', data);
+                // Cache de volledige response voor prijsdata
+                energyfactRawData = data;
                 return parseStedinResponse(data);
             } catch (e) {
                 clearTimeout(timeout);
@@ -409,25 +408,11 @@
             let score = null;
             let updatedAt = null;
 
-            // Energyfact format: "scoreUUUtimestamp1UUUtimestamp2"
-            if (typeof data === 'string' && data.includes('UUU')) {
-                const parts = data.split('UUU');
-                score = extractNumber(parts[0]);
-                if (parts[1]) updatedAt = new Date(parts[1].trim());
-            }
-
-            // Direct top-level fields (JSON object responses)
-            if (score === null && typeof data === 'object' && data !== null) {
-                score = extractNumber(data.score ?? data.value ?? data.eklok_value ?? data.eklokValue ?? data.percentage ?? data.load ?? data.signal ?? null);
-
-                if (score === null && data.data) {
-                    score = extractNumber(data.data.score ?? data.data.value ?? data.data.eklok_value ?? data.data.eklokValue ?? data.data.percentage ?? null);
-                }
-                if (score === null && data.current) {
-                    score = typeof data.current === 'number' ? data.current : extractNumber(data.current.score ?? data.current.value ?? null);
-                }
-                if (score === null && data.result) {
-                    score = typeof data.result === 'number' ? data.result : extractNumber(data.result.score ?? data.result.value ?? data.result.eklok_value ?? null);
+            // Energyfact JSON format: { eklok_value, datetime_eklok_value, ... }
+            if (typeof data === 'object' && data !== null) {
+                score = extractNumber(data.eklok_value ?? data.score ?? data.value ?? null);
+                if (data.datetime_eklok_value) {
+                    updatedAt = new Date(data.datetime_eklok_value.replace(' ', 'T'));
                 }
             }
 
@@ -500,22 +485,17 @@
         // ============================================================
 
         async function fetchEntsoeData() {
-            // Attempt 1: Energyfact prijzen API
-            try {
-                return await fetchEnergyfactPricesApi();
-            } catch (e) {
-                console.warn('Energyfact prijzen API niet bereikbaar, probeer Energy-Charts...', e.message);
+            // Attempt 1: Gebruik gecachte Energyfact data (van Stedin fetch)
+            if (energyfactRawData && energyfactRawData.prices) {
+                console.log('Gebruik gecachte Energyfact prijsdata');
+                return parseEnergyfactPricesResponse(energyfactRawData);
             }
 
-            // Attempt 2: Energy-Charts API (fallback)
-            return await fetchEnergyChartsApi();
-        }
-
-        async function fetchEnergyfactPricesApi() {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 8000);
+            // Attempt 2: Fetch Energyfact API direct
             try {
-                const response = await fetch(CONFIG.energyfactPricesUrl, {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 8000);
+                const response = await fetch(CONFIG.energyfactApiUrl, {
                     signal: controller.signal,
                     cache: 'no-store',
                 });
@@ -523,35 +503,36 @@
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const data = await response.json();
                 console.log('Energyfact prijzen response:', data);
+                energyfactRawData = data;
                 return parseEnergyfactPricesResponse(data);
             } catch (e) {
-                clearTimeout(timeout);
-                console.error('Energyfact prijzen fout:', e);
-                throw e;
+                console.warn('Energyfact API niet bereikbaar, probeer Energy-Charts...', e.message);
             }
+
+            // Attempt 3: Energy-Charts API (fallback)
+            return await fetchEnergyChartsApi();
         }
 
         function parseEnergyfactPricesResponse(data) {
-            // Format: { time_dam_from, price_dam, prices: { "timestamp": price, ... } }
+            // Format: { time_dam_from, price_dam, prices: { "UTC timestamp": price, ... } }
             const currentPrice = parseFloat(data.price_dam);
             if (isNaN(currentPrice)) throw new Error('Geen price_dam in response');
 
             const now = new Date();
-            // Gebruik lokale datum voor vergelijking
-            const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+            const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
             const hourlyPrices = [];
 
             if (data.prices && typeof data.prices === 'object') {
                 for (const [timestamp, price] of Object.entries(data.prices)) {
-                    const date = new Date(timestamp.replace(' ', 'T'));
-                    // Gebruik lokale datum/uur
-                    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                    // Alleen prijzen van vandaag tonen
-                    if (dateStr === todayStr) {
+                    // Parse UTC timestamp en converteer naar lokale tijd
+                    const utcDate = new Date(timestamp.replace(' ', 'T'));
+                    // Check of het uur in vandaag valt (lokale tijd)
+                    if (utcDate >= todayStart && utcDate <= todayEnd) {
                         hourlyPrices.push({
-                            hour: date.getHours(),
+                            hour: utcDate.getHours(),
                             price: typeof price === 'string' ? parseFloat(price) : price,
-                            date,
+                            date: utcDate,
                         });
                     }
                 }
@@ -564,7 +545,7 @@
             }
             const uniqueHourlyPrices = Array.from(hourMap.values()).sort((a, b) => a.hour - b.hour);
 
-            console.log('Prijzen vandaag:', uniqueHourlyPrices.length, 'uren');
+            console.log('Prijzen vandaag:', uniqueHourlyPrices.length, 'uren, currentPrice:', currentPrice);
             if (uniqueHourlyPrices.length === 0) throw new Error('Geen prijsdata voor vandaag');
 
             return { currentPrice, hourlyPrices: uniqueHourlyPrices };
