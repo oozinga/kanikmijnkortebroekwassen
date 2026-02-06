@@ -328,15 +328,25 @@
         // Source Toggle
         // ============================================================
 
-        function switchSource(source) {
+        async function switchSource(source) {
             activeSource = source;
             const tabStedin = document.getElementById('tab-stedin');
             const tabEntsoe = document.getElementById('tab-entsoe');
             tabStedin.className = tabStedin.className.replace(/tab-\w+/, source === 'stedin' ? 'tab-active' : 'tab-inactive');
             tabEntsoe.className = tabEntsoe.className.replace(/tab-\w+/, source === 'entsoe' ? 'tab-active' : 'tab-inactive');
 
-            if (source === 'stedin' && stedinData) renderStedin(stedinData);
-            else if (source === 'entsoe' && entsoeData) renderEntsoe(entsoeData);
+            if (source === 'stedin') {
+                if (!stedinData) {
+                    try { stedinData = await fetchStedinData(); } catch (e) { console.error('Stedin fetch failed:', e); }
+                }
+                if (stedinData) renderStedin(stedinData);
+            } else if (source === 'entsoe') {
+                if (!entsoeData) {
+                    try { entsoeData = await fetchEntsoeData(); } catch (e) { console.error('ENTSO-E fetch failed:', e); }
+                }
+                if (entsoeData) renderEntsoe(entsoeData);
+                else console.error('Geen ENTSO-E data beschikbaar');
+            }
         }
 
         // ============================================================
@@ -721,6 +731,7 @@
         // ============================================================
 
         function renderEntsoe(data) {
+            console.log('renderEntsoe aangeroepen met:', data);
             const { currentPrice, hourlyPrices } = data;
             const status = getEntsoeStatus(currentPrice);
             const config = getEntsoeConfig(status);
@@ -834,11 +845,19 @@
                 fetchEntsoeData(),
             ]);
 
-            if (results[0].status === 'fulfilled') stedinData = results[0].value;
-            else console.warn('Stedin data ophalen mislukt:', results[0].reason?.message);
+            if (results[0].status === 'fulfilled') {
+                stedinData = results[0].value;
+                console.log('Stedin data geladen:', stedinData);
+            } else {
+                console.warn('Stedin data ophalen mislukt:', results[0].reason?.message);
+            }
 
-            if (results[1].status === 'fulfilled') entsoeData = results[1].value;
-            else console.warn('ENTSO-E data ophalen mislukt:', results[1].reason?.message);
+            if (results[1].status === 'fulfilled') {
+                entsoeData = results[1].value;
+                console.log('ENTSO-E data geladen:', entsoeData);
+            } else {
+                console.warn('ENTSO-E data ophalen mislukt:', results[1].reason?.message);
+            }
 
             if (activeSource === 'stedin' && stedinData) renderStedin(stedinData);
             else if (activeSource === 'entsoe' && entsoeData) renderEntsoe(entsoeData);
